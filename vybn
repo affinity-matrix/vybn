@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# vybn — CLI for managing Cloud Claude Code VMs
+set -euo pipefail
+
+# Resolve the real install directory (follows symlinks)
+VYBN_DIR="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")")" && pwd)"
+export VYBN_DIR
+
+# Parse global flags before sourcing config
+_vybn_args=()
+for _vybn_arg in "$@"; do
+    case "$_vybn_arg" in
+        --quiet|-q) export VYBN_QUIET="true" ;;
+        --verbose)  export VYBN_VERBOSE="true" ;;
+        *)          _vybn_args+=("$_vybn_arg") ;;
+    esac
+done
+set -- "${_vybn_args[@]+"${_vybn_args[@]}"}"
+unset _vybn_args _vybn_arg
+
+# Source shared config
+source "${VYBN_DIR}/lib/config.sh"
+
+# Enable trace mode for --verbose
+if [[ "$VYBN_VERBOSE" == "true" ]]; then
+    set -x
+fi
+
+usage() {
+    cat <<'EOF'
+vybn — Cloud Claude Code VM manager
+
+Usage: vybn <command> [args]
+
+Commands:
+  init                Interactive configuration wizard
+  deploy              Create the VM
+  connect [window]    SSH + tmux attach (optionally to a specific window)
+  session <name> [path]  Create a new Claude Code tmux window
+  sync-skills         Copy Claude Code skills to the VM
+  start               Start a stopped VM
+  stop                Stop VM (preserves disk)
+  destroy             Delete VM and network infrastructure
+  status              Show VM state and tmux sessions
+  check               Validate prerequisites before deploying
+  ssh [command]       Raw SSH to VM
+  switch-network <net> Switch network backend (iap or tailscale)
+  logs [OPTIONS]      View VM setup log
+  update [version]    Update Claude Code on the VM
+  add-key <key|opts>  Add SSH public key(s) to the VM
+  tunnel <port> [local]  Forward a TCP port (background, tracked)
+  tunnel list            Show active tunnels
+  tunnel kill <port|all> Stop a tunnel or all tunnels
+  version             Show version
+  help                Show this help
+
+Use 'vybn <command> --help' for details on a specific command.
+
+Configuration:
+  Set in ~/.vybnrc or via environment variables:
+    VYBN_VM_NAME       VM name (default: auto-generated)
+    VYBN_ZONE          GCP zone (default: us-west1-a)
+    VYBN_MACHINE_TYPE  Machine type (default: e2-standard-2)
+    VYBN_DISK_SIZE     Boot disk size in GB (default: 30)
+    VYBN_USER          VM user (default: claude)
+    VYBN_PROJECT       GCP project (auto-detected from gcloud)
+    VYBN_PROVIDER      Cloud provider (default: gcp)
+    VYBN_NETWORK       Network backend (default: tailscale)
+    VYBN_EXTERNAL_IP   Assign public IP to VM (default: false)
+    VYBN_SSHID             SSH.id username for mobile key import
+    VYBN_CLAUDE_CODE_VERSION  Claude Code version (default: 2.1.38)
+    VYBN_TOOLCHAINS        Toolchain modules (default: node)
+    VYBN_APT_PACKAGES      Extra apt packages to install
+    VYBN_NPM_PACKAGES      Extra global npm packages
+    VYBN_SETUP_SCRIPT      Path to custom setup script
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+    init|deploy|connect|session|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
+        source "${VYBN_DIR}/lib/${cmd//-/_}.sh"
+        # Per-command --help
+        if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && declare -f cmd_help &>/dev/null; then
+            cmd_help
+        else
+            # Resolve VM name before lock (lock file path depends on it)
+            case "$cmd" in
+                deploy|destroy|start|stop|switch-network)
+                    _resolve_vm_name
+                    _vybn_lock
+                    ;;
+            esac
+            main "$@"
+        fi
+        ;;
+    version|--version|-v)
+        echo "vybn ${VYBN_VERSION}"
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        error "Unknown command: $cmd"
+        echo
+        usage
+        exit 1
+        ;;
+esac

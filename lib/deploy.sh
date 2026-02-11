@@ -1,0 +1,331 @@
+#!/usr/bin/env bash
+# vybn deploy — Create the VM
+
+_estimate_cost() {
+    # Prices last verified: 2025-05 (us-central1, on-demand)
+    local vm_cost disk_cost total
+
+    # Validate VYBN_DISK_SIZE is a positive integer (prevent awk code injection)
+    if ! [[ "$VYBN_DISK_SIZE" =~ ^[0-9]+$ ]]; then
+        error "VYBN_DISK_SIZE must be a positive integer, got: '${VYBN_DISK_SIZE}'"
+        exit 1
+    fi
+
+    disk_cost=$(awk -v size="$VYBN_DISK_SIZE" 'BEGIN {printf "%.0f", size * 0.17}')
+
+    case "$VYBN_MACHINE_TYPE" in
+        # e2-micro/small/medium (shared-core)
+        e2-micro)           vm_cost=6 ;;
+        e2-small)           vm_cost=12 ;;
+        e2-medium)          vm_cost=25 ;;
+        # e2-standard (balanced)
+        e2-standard-2)      vm_cost=49 ;;
+        e2-standard-4)      vm_cost=97 ;;
+        e2-standard-8)      vm_cost=194 ;;
+        e2-standard-16)     vm_cost=388 ;;
+        # e2-highmem (memory-optimized)
+        e2-highmem-2)       vm_cost=66 ;;
+        e2-highmem-4)       vm_cost=131 ;;
+        e2-highmem-8)       vm_cost=262 ;;
+        e2-highmem-16)      vm_cost=524 ;;
+        # e2-highcpu (compute-optimized)
+        e2-highcpu-2)       vm_cost=36 ;;
+        e2-highcpu-4)       vm_cost=73 ;;
+        e2-highcpu-8)       vm_cost=146 ;;
+        e2-highcpu-16)      vm_cost=292 ;;
+        # n2-standard
+        n2-standard-2)      vm_cost=57 ;;
+        n2-standard-4)      vm_cost=113 ;;
+        n2-standard-8)      vm_cost=226 ;;
+        *)                  vm_cost="" ;;
+    esac
+
+    if [[ -n "$vm_cost" ]]; then
+        total=$((vm_cost + disk_cost))
+        echo "~\$${total}/mo (VM + disk, if running 24/7)"
+    else
+        echo "~\$${disk_cost}/mo disk + unknown VM cost"
+    fi
+}
+
+main() {
+    local skip_confirm=false
+    local auto_connect=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -y|--yes) skip_confirm=true; shift ;;
+            --connect) auto_connect=true; shift ;;
+            *) error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    trap 'echo; warn "Interrupted. The VM may still be provisioning."; warn "Check: vybn status"; exit 130' INT TERM
+
+    require_provider
+
+    # --- Confirmation prompt ---
+    if [[ "$skip_confirm" != true ]]; then
+        local cost_estimate
+        cost_estimate="$(_estimate_cost)"
+
+        info "Deploy summary:"
+        info "  Project:      ${VYBN_PROJECT}"
+        info "  Zone:         ${VYBN_ZONE}"
+        local _name_label="${VYBN_VM_NAME}"
+        if [[ "$_VYBN_NAME_AUTO" == true ]]; then
+            _name_label="${_name_label} (auto-generated)"
+        fi
+        info "  VM name:      ${_name_label}"
+        info "  Machine type: ${VYBN_MACHINE_TYPE}"
+        info "  Disk:         ${VYBN_DISK_SIZE} GB SSD"
+        info "  Network:      ${VYBN_NETWORK}"
+        info "  Toolchains:   ${VYBN_TOOLCHAINS}"
+        if [[ "${VYBN_EXTERNAL_IP}" == "true" ]]; then
+            info "  External IP:  yes"
+        else
+            info "  External IP:  no"
+        fi
+        info "  Est. cost:    ${cost_estimate} (verify: cloud.google.com/compute/pricing)"
+        echo
+        read -rp "Continue? [y/N] " confirm
+        if [[ "$confirm" != [yY] ]]; then
+            info "Cancelled."
+            return
+        fi
+    fi
+
+    # Persist the resolved name so subsequent commands find this VM
+    _persist_vm_name
+
+    info "Deploying VM '${VYBN_VM_NAME}' in ${VYBN_ZONE}..."
+
+    # --- Network setup (firewall rules, etc.) ---
+    net_setup
+
+    # --- Check if VM already exists ---
+    if provider_vm_exists; then
+        error "VM '${VYBN_VM_NAME}' already exists. Use 'vybn destroy' first."
+        exit 1
+    fi
+
+    # --- Create VM ---
+    info "Creating VM (${VYBN_MACHINE_TYPE}, ${VYBN_DISK_SIZE}GB SSD)..."
+
+    local base_script="${VYBN_DIR}/vm-setup/base.sh"
+    local variant_script="${VYBN_DIR}/vm-setup/${VYBN_PROVIDER}-${VYBN_NETWORK}.sh"
+    if [[ ! -f "$base_script" ]]; then
+        error "Base setup script missing: ${base_script}"
+        exit 1
+    fi
+    if [[ ! -f "$variant_script" ]]; then
+        error "No setup script found for ${VYBN_PROVIDER}-${VYBN_NETWORK}."
+        error "Expected: ${variant_script}"
+        exit 1
+    fi
+
+    # Validate toolchain modules exist before concatenation
+    local IFS=','
+    for tc in $VYBN_TOOLCHAINS; do
+        local tc_file="${VYBN_DIR}/vm-setup/toolchains/${tc}.sh"
+        if [[ ! -f "$tc_file" ]]; then
+            error "Toolchain module not found: ${tc_file}"
+            error "Available toolchains: $(find "${VYBN_DIR}/vm-setup/toolchains/" -name '*.sh' -print0 2>/dev/null | xargs -0 -I{} basename {} .sh | tr '\n' ',' | sed 's/,$//')"
+            exit 1
+        fi
+    done
+    unset IFS
+
+    # --- Build startup script ---
+    local setup_script
+    setup_script="$(mktemp)"
+    chmod 600 "$setup_script"
+
+    # 1. Config header — shebang + injected variable assignments
+    {
+        echo '#!/usr/bin/env bash'
+        echo "# Generated by vybn deploy — $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        echo "CLAUDE_CODE_VERSION='${VYBN_CLAUDE_CODE_VERSION}'"
+        echo "VYBN_TOOLCHAINS='${VYBN_TOOLCHAINS}'"
+        echo "VYBN_APT_PACKAGES='${VYBN_APT_PACKAGES}'"
+        echo "VYBN_NPM_PACKAGES='${VYBN_NPM_PACKAGES}'"
+    } > "$setup_script"
+
+    # 2. Network config — call net_inject_config if defined
+    if declare -f net_inject_config &>/dev/null; then
+        net_inject_config >> "$setup_script"
+    fi
+
+    # 3. base.sh — strip shebang (header already has one)
+    tail -n +2 "$base_script" >> "$setup_script"
+
+    # 4. Toolchain modules
+    IFS=','
+    for tc in $VYBN_TOOLCHAINS; do
+        cat "${VYBN_DIR}/vm-setup/toolchains/${tc}.sh" >> "$setup_script"
+    done
+    unset IFS
+
+    # 5. Variant script
+    cat "$variant_script" >> "$setup_script"
+
+    # 6. User setup script (if configured)
+    if [[ -n "${VYBN_SETUP_SCRIPT:-}" ]]; then
+        {
+            echo ""
+            echo "# --- User setup script: ${VYBN_SETUP_SCRIPT} ---"
+            echo "log 'Running user setup script...'"
+            echo "("
+            echo "set +e"
+            cat "$VYBN_SETUP_SCRIPT"
+            echo ")"
+            echo "log 'User setup script finished.'"
+        } >> "$setup_script"
+    fi
+
+    if ! provider_vm_create "$setup_script"; then
+        rm -f "$setup_script"
+        error "VM creation failed. Cleaning up network infrastructure..."
+        net_teardown
+        exit 1
+    fi
+    rm -f "$setup_script"
+
+    # --- Wait for startup script ---
+    info "Waiting for startup script to complete..."
+    info "(This may take a few minutes on first deploy)"
+
+    local attempts=0
+    local max_attempts=60
+    local start_time
+    start_time=$(date +%s)
+    while (( attempts < max_attempts )); do
+        local setup_result
+        setup_result="$(net_ssh_raw "$VYBN_USER" \
+            "if [ -f /var/log/vybn-setup-complete ]; then echo done; \
+             elif [ -f /var/log/vybn-setup-failed ]; then echo failed; \
+             else echo pending; fi" 2>/dev/null)" || setup_result="unreachable"
+
+        # Fallback: check GCP guest attributes when SSH is not available.
+        # This handles the Tailscale chicken-and-egg: SSH requires Tailscale,
+        # but Tailscale setup is part of the startup script.
+        if [[ "$setup_result" == "unreachable" ]]; then
+            local ga_status
+            ga_status="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
+                --query-path=vybn/setup-status \
+                --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
+                --format='value(value)' 2>/dev/null)" || ga_status=""
+            case "$ga_status" in
+                complete) setup_result="done" ;;
+                failed)   setup_result="failed" ;;
+            esac
+        fi
+
+        case "$setup_result" in
+            done) break ;;
+            failed)
+                printf "\n"
+                error "Startup script failed!"
+                if ! net_ssh_raw "$VYBN_USER" "tail -50 /var/log/vybn-setup.log" 2>/dev/null; then
+                    warn "SSH not available. Fetching serial port output..."
+                    gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
+                        --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
+                        | grep "^\[" | tail -30 || true
+                fi
+                exit 1 ;;
+        esac
+
+        attempts=$((attempts + 1))
+        local elapsed=$(( $(date +%s) - start_time ))
+        printf "\r$(_color 34)[info]$(_reset) Waiting for VM setup... (%s elapsed)" "$(format_duration "$elapsed")"
+        sleep 10
+    done
+    printf "\n"
+
+    if (( attempts >= max_attempts )); then
+        local elapsed=$(( $(date +%s) - start_time ))
+        error "Startup script did not complete within $(format_duration "$elapsed")."
+        warn "Fetching setup log from VM..."
+        if ! net_ssh_raw "$VYBN_USER" "tail -30 /var/log/vybn-setup.log" 2>/dev/null; then
+            warn "SSH not available. Fetching serial port output..."
+            gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
+                --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
+                | grep "^\[" | tail -30 || true
+        fi
+        error "Deploy did not complete successfully. The VM may still be setting up."
+        error "Check progress: vybn ssh 'tail -f /var/log/vybn-setup.log'"
+        exit 1
+    fi
+
+    success "Startup script completed."
+
+    # Show Claude Code integrity check result from VM
+    local checksum_result
+    checksum_result="$(vybn_ssh 'grep -i "checksum" /var/log/vybn-setup.log' 2>/dev/null || true)"
+    if [[ -n "$checksum_result" ]]; then
+        info "Claude Code integrity: ${checksum_result##*] }"
+    fi
+
+    # Pin host key for Tailscale deployments (eliminates TOFU on first connect)
+    if [[ "$VYBN_NETWORK" == "tailscale" ]]; then
+        info "Fetching host key from VM..."
+        local host_key
+        host_key="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
+            --query-path=vybn/ssh-host-key-ed25519 \
+            --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
+            --format='value(value)' 2>/dev/null)" || true
+        if [[ -n "$host_key" ]]; then
+            local key_dir="${VYBN_SSH_KEY_DIR:-$HOME/.vybn/ssh}"
+            local hostname="${VYBN_TAILSCALE_HOSTNAME:-$VYBN_VM_NAME}"
+            mkdir -p "$key_dir"
+            echo "${hostname} ${host_key}" >> "${key_dir}/known_hosts"
+            success "Host key pinned for ${hostname}."
+        else
+            warn "Could not fetch host key. First connection will use TOFU."
+        fi
+    fi
+
+    success "VM '${VYBN_VM_NAME}' deployed."
+
+    if [[ "$auto_connect" == true ]]; then
+        local safe_session="${VYBN_TMUX_SESSION//\'/\'\\\'\'}"
+        info "Connecting to tmux session '${VYBN_TMUX_SESSION}'..."
+        vybn_ssh_interactive \
+            "export TERM='${VYBN_TERM}'; \
+             tmux attach -t '${safe_session}' 2>/dev/null || tmux new-session -s '${safe_session}'"
+    else
+        echo
+        info "Next step:"
+        info "  vybn connect   # SSH into tmux session"
+    fi
+}
+
+cmd_help() {
+    cat <<'EOF'
+vybn deploy — Create the VM
+
+Usage: vybn deploy [OPTIONS]
+
+Creates a new VM with Claude Code pre-installed. Sets up:
+  - Network infrastructure (Tailscale enrollment or IAP firewall rules)
+  - VM with Ubuntu 24.04 and SSD boot disk
+
+Options:
+  -y, --yes           Skip confirmation prompt
+  --connect           After deploy, connect to tmux session automatically
+
+Configuration (via ~/.vybnrc or environment):
+  VYBN_VM_NAME        VM name (default: auto-generated)
+  VYBN_ZONE           GCP zone (default: us-west1-a)
+  VYBN_MACHINE_TYPE   Machine type (default: e2-standard-2)
+  VYBN_DISK_SIZE      Boot disk size in GB (default: 30)
+  VYBN_PROVIDER       Cloud provider (default: gcp)
+  VYBN_NETWORK        Network backend (default: tailscale)
+  VYBN_EXTERNAL_IP    Assign public IP to VM (default: false)
+  VYBN_CLAUDE_CODE_VERSION  Claude Code version to install (default: 2.1.38)
+  VYBN_TOOLCHAINS     Toolchain modules to install (default: node)
+                      Comma-separated: node,python,rust,go,docker
+  VYBN_APT_PACKAGES   Extra apt packages to install on the VM
+  VYBN_NPM_PACKAGES   Extra global npm packages (requires node toolchain)
+  VYBN_SETUP_SCRIPT   Path to a custom setup script to run after all setup
+EOF
+}

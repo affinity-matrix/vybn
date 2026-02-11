@@ -1,0 +1,52 @@
+---
+title: vybn
+description: CLI for managing Claude Code on a cloud virtual machine.
+template: splash
+hero:
+  tagline: Run Claude Code in persistent tmux sessions on a cloud VM. Connect from anywhere. Pick up where you left off.
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/affinity-matrix/vybn
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Why vybn
+
+Claude Code runs best with a stable, always-on environment. Running it on a cloud VM gives you:
+
+<CardGrid>
+  <Card title="Persistent sessions" icon="laptop">
+    tmux keeps Claude Code running even when you disconnect. Reconnect from any device and pick up exactly where you left off.
+  </Card>
+  <Card title="Consistent environment" icon="setting">
+    Same OS, same tools, no laptop-specific quirks. Choose your toolchains — Node.js, Python, Rust, Go, Docker — and get a consistent dev environment every time.
+  </Card>
+  <Card title="Multiple projects" icon="list-format">
+    Each project runs in its own tmux window, all on one VM. Switch between them instantly.
+  </Card>
+  <Card title="Low cost" icon="approve-check">
+    Stop the VM when not in use. Pay only for disk storage (~$5.10/month for 30 GB SSD).
+  </Card>
+</CardGrid>
+
+## Quick look
+
+```bash
+# Deploy a VM with Claude Code pre-installed
+vybn deploy
+
+# Log in to Claude Code on the VM
+vybn auth
+
+# Connect to a persistent session
+vybn connect
+```
+
+That's it. Three commands to get a persistent Claude Code environment in the cloud. vybn uses Tailscale by default, so your VM is reachable from any device on your tailnet — including phones and tablets.

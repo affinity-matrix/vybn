@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+._*
+
+# Editors
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Backups
+*.bak
+
+# vybn config (may contain secrets like VYBN_TAILSCALE_AUTHKEY)
+.vybnrc

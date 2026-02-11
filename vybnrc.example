@@ -1,0 +1,102 @@
+# vybn configuration — source'd by vybn at startup
+# Copy to ~/.vybnrc and edit as needed.
+
+# --- Provider and network ---
+
+# Cloud provider backend (default: gcp)
+# VYBN_PROVIDER="gcp"
+
+# Network backend (default: tailscale)
+# VYBN_NETWORK="tailscale"
+
+# --- VM settings ---
+
+# VM instance name (auto-generated if unset)
+# VYBN_VM_NAME="my-cloud-vm"
+
+# GCP zone — pick one near you for lower latency
+# See full list: https://cloud.google.com/compute/docs/regions-zones
+# VYBN_ZONE="us-west1-a"
+
+# Machine type — determines CPU/RAM
+# Shared-core:
+#   e2-micro:       2 vCPU (shared), 1 GB RAM   (~$6/mo)
+#   e2-small:       2 vCPU (shared), 2 GB RAM   (~$12/mo)
+#   e2-medium:      2 vCPU (shared), 4 GB RAM   (~$25/mo)
+# Standard (balanced):
+#   e2-standard-2:  2 vCPU,  8 GB RAM  (~$49/mo)
+#   e2-standard-4:  4 vCPU, 16 GB RAM  (~$97/mo)
+#   e2-standard-8:  8 vCPU, 32 GB RAM  (~$194/mo)
+# High-memory:
+#   e2-highmem-2:   2 vCPU, 16 GB RAM  (~$66/mo)
+#   e2-highmem-4:   4 vCPU, 32 GB RAM  (~$131/mo)
+# Pricing: https://cloud.google.com/compute/vm-instance-pricing
+# VYBN_MACHINE_TYPE="e2-standard-2"
+
+# Boot disk size in GB (SSD)
+# Disk cost: ~$0.17/GB/month
+# VYBN_DISK_SIZE="30"
+
+# GCP project ID — auto-detected from 'gcloud config get-value project' if unset
+# VYBN_PROJECT=""
+
+# VM user account
+# VYBN_USER="claude"
+
+# --- tmux ---
+
+# tmux session name used for all Claude Code windows
+# VYBN_TMUX_SESSION="claude"
+
+# --- Output control ---
+
+# Suppress info and success messages (warnings and errors still shown)
+# VYBN_QUIET="false"
+
+# Enable verbose/trace output (set -x)
+# VYBN_VERBOSE="false"
+
+# --- Tailscale network backend ---
+# Tailscale is the default network backend.
+# To use IAP instead, set VYBN_NETWORK="iap" above.
+
+# Tailscale auth key for VM enrollment (required for deploy)
+# Generate at: https://login.tailscale.com/admin/settings/keys
+# Use a reusable key if you plan to redeploy frequently.
+# VYBN_TAILSCALE_AUTHKEY="tskey-auth-..."
+
+# Override the Tailscale hostname (defaults to VYBN_VM_NAME)
+# VYBN_TAILSCALE_HOSTNAME=""
+
+# Tailscale ACL tags (e.g., "tag:vybn")
+# VYBN_TAILSCALE_TAGS=""
+
+# Directory for vybn-managed SSH keys (used by Tailscale backend)
+# VYBN_SSH_KEY_DIR="$HOME/.vybn/ssh"
+
+# SSH.id username (imports public keys from https://sshid.io/<username> at deploy time)
+# Useful for adding mobile SSH keys from Termius. Post-deploy: vybn add-key --sshid <username>
+# VYBN_SSHID=""
+
+# --- Claude Code ---
+
+# Claude Code version to install (default: 2.1.38)
+# Uses the native installer (https://claude.ai/install.sh) with checksum verification.
+# VYBN_CLAUDE_CODE_VERSION="2.1.38"
+
+# --- Toolchains ---
+
+# Comma-separated list of toolchain modules to install (default: node)
+# Available: node, python, rust, go, docker
+# VYBN_TOOLCHAINS="node"
+# VYBN_TOOLCHAINS="node,python,rust"
+
+# Extra apt packages to install on the VM (space-separated)
+# VYBN_APT_PACKAGES="ripgrep fd-find sqlite3"
+
+# Extra global npm packages (requires node toolchain, space-separated)
+# VYBN_NPM_PACKAGES="typescript tsx"
+
+# Path to a custom setup script to run after all standard setup
+# The script runs in a subshell with set +e, so failures won't abort the deploy.
+# VYBN_SETUP_SCRIPT="$HOME/.vybn/setup.sh"

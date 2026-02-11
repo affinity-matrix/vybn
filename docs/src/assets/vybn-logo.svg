@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <!-- ink: #0B0F1A  accent: #18E3C8 -->
+  <!-- Packets are all 20x20 and aligned to a 4px grid. -->
+
+  <!-- Signal "V" path -->
+  <path d="M64 72 L128 184 L192 72"
+        stroke="#0B0F1A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Nodes (circular caps) -->
+  <circle cx="64" cy="72" r="16" fill="#0B0F1A"/>
+  <circle cx="128" cy="184" r="16" fill="#0B0F1A"/>
+  <circle cx="192" cy="72" r="16" fill="#0B0F1A"/>
+
+  <!-- Packets: classic terminal prompt `> _` (ONLY) -->
+  <!-- `>` constructed from 3 packets -->
+  <rect x="92"  y="94"  width="20" height="20" rx="4" fill="#18E3C8"/>
+  <rect x="116" y="114" width="20" height="20" rx="4" fill="#18E3C8"/>
+  <rect x="92"  y="134" width="20" height="20" rx="4" fill="#18E3C8"/>
+
+  <!-- `_` underscore block -->
+  <rect x="144" y="142" width="48" height="20" rx="4" fill="#18E3C8"/>
+</svg>

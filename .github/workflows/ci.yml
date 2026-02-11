@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: |
+          shellcheck --shell=bash --severity=warning \
+            --exclude=SC1090,SC2034 \
+            vybn install.sh lib/*.sh providers/*.sh networks/*.sh \
+            vm-setup/base.sh vm-setup/*.sh vm-setup/toolchains/*.sh test/*.sh
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make scripts executable
+        run: |
+          chmod +x vybn install.sh vm-setup/base.sh
+          chmod +x vm-setup/*.sh vm-setup/toolchains/*.sh providers/*.sh networks/*.sh lib/*.sh test/*.sh
+      - name: Run smoke tests
+        env:
+          VYBN_PROJECT: ci-test-project
+        run: ./test/smoke.sh
