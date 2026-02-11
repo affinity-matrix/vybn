@@ -7,14 +7,22 @@ description: Install vybn and deploy your first cloud VM with Claude Code.
 
 Need help setting these up? See the [Prerequisites guide](/guides/prerequisites/) for a full walkthrough.
 
+**GCP provider** (default):
+
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`) — authenticated with a project
-- SSH client — comes with macOS/Linux
 - A GCP project with billing enabled
 - [Tailscale](https://tailscale.com/download) — installed and logged in on your local machine
 - A Tailscale auth key — generate at the [admin console](https://login.tailscale.com/admin/settings/keys)
 
+**SSH provider** (bring your own server):
+
+- SSH client — comes with macOS/Linux
+- An accessible server (Ubuntu 22.04+/Debian 12+) with root or sudo
+- [Tailscale](https://tailscale.com/download) — installed and logged in on your local machine
+- A Tailscale auth key — generate at the [admin console](https://login.tailscale.com/admin/settings/keys)
+
 :::note[Using IAP instead of Tailscale?]
-For IAP networking (alternative to Tailscale): no additional prerequisites beyond `gcloud`. See the [IAP Setup guide](/guides/iap/).
+For IAP networking (GCP only, alternative to Tailscale): no additional prerequisites beyond `gcloud`. See the [IAP Setup guide](/guides/iap/).
 :::
 
 ## Installation
@@ -79,7 +87,7 @@ vybn deploy
 vybn connect
 ```
 
-The wizard asks for your Tailscale auth key, GCP project, machine type, and other settings. It writes a validated `~/.vybnrc` for you.
+The wizard asks for your provider, network backend, Tailscale auth key, GCP project (or SSH server details), machine type, and other settings. It writes a validated `~/.vybnrc` for you.
 
 After deploy, the VM is reachable from any device on your tailnet — including iOS via [Termius](https://termius.com/) or any SSH client.
 
@@ -104,15 +112,41 @@ vybn connect
 
 `vybn init` handles the network choice — select `iap` when prompted for the network backend.
 
+## Quick Start (SSH Provider)
+
+Use an existing server instead of provisioning a GCP VM.
+
+```bash
+# 1. Run the setup wizard — select "ssh" as the provider
+vybn init
+
+# 2. Deploy Claude Code to your server
+vybn deploy
+
+# 3. Connect
+vybn connect
+```
+
+The wizard asks for your server's hostname, SSH user, and Tailscale auth key. vybn uploads and runs the setup script over SSH. See the [SSH Provider guide](/guides/ssh-provider/) for details.
+
 ## What happens on deploy
 
 When you run `vybn deploy`, the following happens:
+
+**GCP provider:**
 
 1. A GCP VM is created running Ubuntu 24.04
 2. A startup script installs Claude Code CLI (native binary with checksum verification), selected toolchains (Node.js by default), and tmux
 3. Any extra apt/npm packages from your config are installed
 4. Network infrastructure is configured (Tailscale enrollment or IAP firewall rules)
 5. The VM becomes reachable via the selected network backend
+
+**SSH provider:**
+
+1. The setup script is assembled locally and uploaded to your server via SCP
+2. The script runs over SSH, installing Claude Code, toolchains, and tmux
+3. Tailscale is installed and enrolled on your tailnet
+4. The server becomes reachable via Tailscale
 
 After deploy completes, run `vybn connect` to drop into a tmux session. Claude Code will prompt you to log in on first launch.
 

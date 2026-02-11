@@ -9,7 +9,7 @@ The easiest way to configure vybn is with the init wizard:
 vybn init
 ```
 
-This walks you through network backend, GCP project, machine type, Tailscale auth key, and other settings, then writes `~/.vybnrc` for you.
+This walks you through provider, network backend, GCP project (or SSH server details), machine type, Tailscale auth key, and other settings, then writes `~/.vybnrc` for you.
 
 You can also create the file manually from the included template:
 
@@ -23,25 +23,38 @@ All settings can also be set as environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VYBN_PROVIDER` | `gcp` | Cloud provider backend |
+| `VYBN_PROVIDER` | `gcp` | Cloud provider backend (`gcp` or `ssh`) |
 | `VYBN_NETWORK` | `tailscale` | Network backend (`tailscale` or `iap`) |
 | `VYBN_VM_NAME` | *(auto-generated petname)* | VM instance name (`claude-<adj>-<animal>`) |
-| `VYBN_ZONE` | `us-west1-a` | GCP zone |
-| `VYBN_MACHINE_TYPE` | `e2-standard-2` | Machine type (CPU/RAM) |
-| `VYBN_DISK_SIZE` | `30` | Boot disk size in GB |
 | `VYBN_USER` | `claude` | VM user account |
-| `VYBN_PROJECT` | *(auto-detected)* | GCP project ID |
 | `VYBN_TMUX_SESSION` | `claude` | tmux session name |
 | `VYBN_TERM` | `xterm-256color` | Terminal type for tmux sessions |
-| `VYBN_EXTERNAL_IP` | `false` | Assign public IP to VM (forced `true` for Tailscale) |
 | `VYBN_QUIET` | `false` | Suppress info/success output (`--quiet` flag) |
 | `VYBN_VERBOSE` | `false` | Enable trace output (`--verbose` flag) |
 
-## GCP Settings
+## GCP Provider Settings
+
+These apply when using `VYBN_PROVIDER=gcp` (the default).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `VYBN_ZONE` | `us-west1-a` | GCP zone |
+| `VYBN_MACHINE_TYPE` | `e2-standard-2` | Machine type (CPU/RAM) |
+| `VYBN_DISK_SIZE` | `30` | Boot disk size in GB |
+| `VYBN_PROJECT` | *(auto-detected)* | GCP project ID |
+| `VYBN_EXTERNAL_IP` | `false` | Assign public IP to VM (forced `true` for Tailscale) |
 | `VYBN_GCP_SCOPES` | `compute-ro,logging-write,storage-ro` | GCP API scopes assigned to the VM |
+
+## SSH Provider Settings
+
+These apply when using `VYBN_PROVIDER=ssh`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VYBN_SSH_HOST` | *(none, required)* | Remote hostname or IP address |
+| `VYBN_SSH_USER` | *(current user)* | SSH user for the bootstrap connection |
+| `VYBN_SSH_KEY` | *(none)* | Path to SSH private key (uses SSH agent if unset) |
+| `VYBN_SSH_PORT` | `22` | SSH port for the bootstrap connection |
 
 ## Claude Code
 
@@ -144,6 +157,23 @@ VYBN_ZONE="europe-west1-b"
 
 # Custom VM name
 VYBN_VM_NAME="claude-work"
+```
+
+### SSH Provider
+
+```bash
+# ~/.vybnrc
+
+# Use an existing server
+VYBN_PROVIDER="ssh"
+
+# Server connection details
+VYBN_SSH_HOST="dev.example.com"
+VYBN_SSH_USER="ubuntu"
+VYBN_SSH_KEY="$HOME/.ssh/id_ed25519"
+
+# Tailscale auth key (required for deploy)
+VYBN_TAILSCALE_AUTHKEY="tskey-auth-..."
 ```
 
 ### Custom Setup Script

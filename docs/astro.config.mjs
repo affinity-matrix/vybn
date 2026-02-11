@@ -41,6 +41,7 @@ export default defineConfig({
           items: [
             { label: "Tailscale Setup", slug: "guides/tailscale" },
             { label: "IAP Setup", slug: "guides/iap" },
+            { label: "SSH Provider", slug: "guides/ssh-provider" },
             { label: "Mobile SSH", slug: "guides/mobile-ssh" },
             { label: "Toolchains", slug: "guides/toolchains" },
             { label: "Git & GitHub", slug: "guides/git-github" },

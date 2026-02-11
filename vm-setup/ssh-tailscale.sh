@@ -1,18 +1,10 @@
-# VM setup variant: GCP + Tailscale
+# VM setup variant: SSH (bring your own VM) + Tailscale
 # Appended after base.sh at deploy time — no shebang needed.
 # Installs Tailscale for mesh networking + vybn SSH key.
 
-# GCP guest attributes implementation (overrides base.sh no-op)
-_publish_guest_attr() {
-    local key="$1" value="$2"
-    curl -sf -X PUT --data "$value" \
-        "http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/vybn/${key}" \
-        -H "Metadata-Flavor: Google" 2>/dev/null || true
-}
+# No _publish_guest_attr override — base.sh no-op is fine for SSH provider.
 
-_publish_guest_attr setup-status running
-
-log "=== vybn VM setup starting (tailscale) ==="
+log "=== vybn VM setup starting (ssh + tailscale) ==="
 
 setup_system_packages
 setup_user
@@ -160,15 +152,6 @@ setup_extra_packages
 setup_tmux
 setup_claude_hooks
 setup_ssh_hardening
-
-# Publish SSH host key to guest attributes for client-side pinning
-log "Publishing SSH host key to guest attributes..."
-HOST_KEY_PUB="$(cat /etc/ssh/ssh_host_ed25519_key.pub)"
-curl -sf -X PUT --data "$HOST_KEY_PUB" \
-    "http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/vybn/ssh-host-key-ed25519" \
-    -H "Metadata-Flavor: Google" \
-    && log "Host key published." \
-    || log "WARNING: Failed to publish host key to guest attributes."
 
 setup_bashrc
 setup_complete

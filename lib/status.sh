@@ -4,6 +4,23 @@
 main() {
     require_provider
 
+    if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+        echo "=== Server: ${VYBN_SSH_HOST} ==="
+        provider_vm_info
+        echo
+
+        # Network connectivity
+        net_status
+        echo
+
+        # tmux sessions
+        echo "=== tmux sessions ==="
+        local tmux_out
+        tmux_out="$(vybn_ssh "tmux list-windows -t '${VYBN_TMUX_SESSION}' 2>/dev/null || echo 'No active tmux session'" 2>/dev/null || echo "SSH not available")"
+        echo "$tmux_out"
+        return
+    fi
+
     # Check if VM exists
     if ! provider_vm_exists; then
         info "VM '${VYBN_VM_NAME}' does not exist."

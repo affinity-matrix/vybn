@@ -68,7 +68,9 @@ _ts_ensure_ssh_key() {
 #
 # Set at source time (not inside net_setup) so the deploy summary reflects reality.
 # shellcheck disable=SC2034  # used by providers/*.sh and lib/deploy.sh
-VYBN_EXTERNAL_IP="true"
+if [[ "$VYBN_PROVIDER" != "ssh" ]]; then
+    VYBN_EXTERNAL_IP="true"
+fi
 
 # --- Network Interface ---
 
@@ -119,20 +121,23 @@ net_setup() {
     fi
 
     # Create deny-all firewall rule (Tailscale uses outbound NAT traversal, no inbound needed)
-    if ! gcloud compute firewall-rules describe vybn-deny-all-ingress \
-        --project="$VYBN_PROJECT" &>/dev/null; then
-        info "Creating firewall rule: vybn-deny-all-ingress..."
-        _retry gcloud compute firewall-rules create vybn-deny-all-ingress \
-            --project="$VYBN_PROJECT" \
-            --direction=INGRESS \
-            --action=DENY \
-            --rules=all \
-            --source-ranges=0.0.0.0/0 \
-            --target-tags=vybn-vm \
-            --priority=1000 \
-            --description="Deny all inbound traffic to vybn VMs" &>/dev/null
-    else
-        info "Firewall rule vybn-deny-all-ingress already exists."
+    # Skip for SSH provider — user manages their own firewall
+    if [[ "$VYBN_PROVIDER" != "ssh" ]]; then
+        if ! gcloud compute firewall-rules describe vybn-deny-all-ingress \
+            --project="$VYBN_PROJECT" &>/dev/null; then
+            info "Creating firewall rule: vybn-deny-all-ingress..."
+            _retry gcloud compute firewall-rules create vybn-deny-all-ingress \
+                --project="$VYBN_PROJECT" \
+                --direction=INGRESS \
+                --action=DENY \
+                --rules=all \
+                --source-ranges=0.0.0.0/0 \
+                --target-tags=vybn-vm \
+                --priority=1000 \
+                --description="Deny all inbound traffic to vybn VMs" &>/dev/null
+        else
+            info "Firewall rule vybn-deny-all-ingress already exists."
+        fi
     fi
 
     # Clear stale known_hosts entry for this hostname
@@ -144,11 +149,14 @@ net_setup() {
 }
 
 net_teardown() {
-    if gcloud compute firewall-rules describe vybn-deny-all-ingress \
-        --project="$VYBN_PROJECT" &>/dev/null; then
-        info "Deleting firewall rule 'vybn-deny-all-ingress'..."
-        _retry gcloud compute firewall-rules delete vybn-deny-all-ingress \
-            --project="$VYBN_PROJECT" --quiet
+    # Skip firewall rule deletion for SSH provider — user manages their own firewall
+    if [[ "$VYBN_PROVIDER" != "ssh" ]]; then
+        if gcloud compute firewall-rules describe vybn-deny-all-ingress \
+            --project="$VYBN_PROJECT" &>/dev/null; then
+            info "Deleting firewall rule 'vybn-deny-all-ingress'..."
+            _retry gcloud compute firewall-rules delete vybn-deny-all-ingress \
+                --project="$VYBN_PROJECT" --quiet
+        fi
     fi
 
     # Device deregistration is handled in destroy.sh via `tailscale logout`.
