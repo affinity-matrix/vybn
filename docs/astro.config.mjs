@@ -51,6 +51,11 @@ export default defineConfig({
           label: "Help",
           items: [
             { label: "Troubleshooting", slug: "troubleshooting" },
+            {
+              label: "Feature Requests",
+              link: "https://github.com/affinity-matrix/vybn/issues/new/choose",
+              attrs: { target: "_blank" },
+            },
           ],
         },
       ],

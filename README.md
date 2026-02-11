@@ -298,6 +298,10 @@ These are rough estimates for `us-central1`. Actual costs vary by region and usa
 
 Stop the VM when not in use (`vybn stop`) to avoid compute charges.
 
+## Feedback
+
+Have an idea or found a bug? [Open an issue](https://github.com/affinity-matrix/vybn/issues/new/choose) — feature requests and bug reports are welcome.
+
 ## License
 
 [MIT](LICENSE)
