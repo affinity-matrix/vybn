@@ -182,7 +182,7 @@ set -g status-left-length 30
 setw -g window-status-current-style "fg=colour166,bold"
 # Bell: highlight window tab when Claude Code is waiting for input
 set -g visual-bell off
-set -g bell-action other
+set -g bell-action any
 setw -g monitor-bell on
 set -g window-status-bell-style "fg=colour255,bg=colour196,bold"
 # Faster escape (for vim/claude)
@@ -200,34 +200,51 @@ setup_claude_hooks() {
 
     mkdir -p "$claude_dir"
 
+    local bell_cmd="printf '\\a' > /dev/tty 2>/dev/null || { tty=\$(tmux display-message -p '#{pane_tty}' 2>/dev/null) && printf '\\a' > \"\$tty\"; } 2>/dev/null || true"
+
     if [[ -f "$settings" ]]; then
         # Skip if notification hooks are already configured
         if jq -e '.hooks.Notification' "$settings" &>/dev/null; then
             log "Claude Code notification hooks already configured."
             return
         fi
-        # Merge notification hook into existing settings
+        # Merge notification and stop hooks into existing settings
         local tmp
         tmp="$(mktemp)"
-        jq --arg cmd "printf '\\a' > /dev/tty 2>/dev/null || true" '
+        jq --arg cmd "$bell_cmd" '
             .hooks = (.hooks // {}) + {
                 "Notification": [{
-                    "matcher": "idle_prompt",
+                    "matcher": "*",
+                    "hooks": [{"type": "command", "command": $cmd}]
+                }],
+                "Stop": [{
+                    "matcher": "*",
                     "hooks": [{"type": "command", "command": $cmd}]
                 }]
             }
         ' "$settings" > "$tmp" && mv "$tmp" "$settings"
     else
-        cat > "$settings" << 'HOOKEOF'
+        cat > "$settings" << HOOKEOF
 {
   "hooks": {
     "Notification": [
       {
-        "matcher": "idle_prompt",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "printf '\\a' > /dev/tty 2>/dev/null || true"
+            "command": $(printf '%s' "$bell_cmd" | jq -Rs .)
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": $(printf '%s' "$bell_cmd" | jq -Rs .)
           }
         ]
       }
