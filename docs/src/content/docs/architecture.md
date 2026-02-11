@@ -80,6 +80,7 @@ vybn/
 ├── install.sh            # Installation script
 ├── lib/                  # Command implementations
 │   ├── config.sh         # Shared configuration and helpers
+│   ├── init.sh           # init command
 │   ├── deploy.sh         # deploy command
 │   ├── connect.sh        # connect command
 │   ├── session.sh        # session command

@@ -3,11 +3,18 @@ title: Configuration
 description: All vybn configuration options and how to set them.
 ---
 
-Create `~/.vybnrc` to override defaults. A template is included in the repo:
+The easiest way to configure vybn is with the init wizard:
+
+```bash
+vybn init
+```
+
+This walks you through network backend, GCP project, machine type, Tailscale auth key, and other settings, then writes `~/.vybnrc` for you.
+
+You can also create the file manually from the included template:
 
 ```bash
 cp vybnrc.example ~/.vybnrc
-# Edit to taste
 ```
 
 All settings can also be set as environment variables.

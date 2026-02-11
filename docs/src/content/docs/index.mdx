@@ -39,6 +39,9 @@ Claude Code runs best with a stable, always-on environment. Running it on a clou
 ## Quick look
 
 ```bash
+# Configure your VM (network, project, machine type, etc.)
+vybn init
+
 # Deploy a VM with Claude Code pre-installed
 vybn deploy
 
@@ -46,4 +49,4 @@ vybn deploy
 vybn connect
 ```
 
-That's it. Two commands to get a persistent Claude Code environment in the cloud. vybn uses Tailscale by default, so your VM is reachable from any device on your tailnet — including phones and tablets.
+That's it. Three commands to get a persistent Claude Code environment in the cloud. vybn uses Tailscale by default, so your VM is reachable from any device on your tailnet — including phones and tablets.
