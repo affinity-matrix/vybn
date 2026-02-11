@@ -162,6 +162,10 @@ setup_tmux() {
         log "Writing tmux config..."
         cat > "$tmux_conf" << 'TMUXEOF'
 # Sensible defaults for Claude Code sessions
+# Prefix: Ctrl-a (easier on mobile keyboards)
+unbind C-b
+set -g prefix C-a
+bind C-a send-prefix
 set -g default-terminal "screen-256color"
 set -ga terminal-overrides ",xterm-256color:Tc"
 set -g mouse on

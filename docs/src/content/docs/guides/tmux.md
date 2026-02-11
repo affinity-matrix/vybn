@@ -38,34 +38,40 @@ When you `vybn connect`, you're attached to a **tmux session** named `claude` (c
 
 ## The prefix key
 
-All tmux shortcuts start with a **prefix key**: `Ctrl-b`.
+All tmux shortcuts start with a **prefix key**: `Ctrl-a`.
+
+vybn uses `Ctrl-a` (GNU Screen's classic keybinding) instead of tmux's default `Ctrl-b` because it's easier to type on mobile keyboards — `a` is on the home row and much more accessible with modifier keys on touch screens. It's also familiar to longtime Screen users.
 
 The pattern is always two steps:
 
-1. Press `Ctrl-b`, then release both keys
+1. Press `Ctrl-a`, then release both keys
 2. Press the action key
 
-For example, to create a new window: press `Ctrl-b`, release, then press `c`.
+For example, to create a new window: press `Ctrl-a`, release, then press `c`.
+
+:::note[Prefer Ctrl-b?]
+If you're used to tmux's default prefix, you can change it back by editing `~/.tmux.conf` on the VM and running `tmux source-file ~/.tmux.conf`.
+:::
 
 ## Essential shortcuts
 
 | Action | Keys |
 |--------|------|
 | **Windows** | |
-| Next window | `Ctrl-b` `n` |
-| Previous window | `Ctrl-b` `p` |
-| Go to window N | `Ctrl-b` `1`–`9` |
-| List all windows | `Ctrl-b` `w` |
-| Create new window | `Ctrl-b` `c` |
-| Rename current window | `Ctrl-b` `,` |
+| Next window | `Ctrl-a` `n` |
+| Previous window | `Ctrl-a` `p` |
+| Go to window N | `Ctrl-a` `1`–`9` |
+| List all windows | `Ctrl-a` `w` |
+| Create new window | `Ctrl-a` `c` |
+| Rename current window | `Ctrl-a` `,` |
 | **Panes** | |
-| Split vertically | `Ctrl-b` `%` |
-| Split horizontally | `Ctrl-b` `"` |
-| Switch between panes | `Ctrl-b` `arrow keys` |
+| Split vertically | `Ctrl-a` `%` |
+| Split horizontally | `Ctrl-a` `"` |
+| Switch between panes | `Ctrl-a` `arrow keys` |
 | Close current pane | `Ctrl-d` or `exit` |
 | **Session** | |
-| Detach from session | `Ctrl-b` `d` |
-| Scroll / copy mode | `Ctrl-b` `[` |
+| Detach from session | `Ctrl-a` `d` |
+| Scroll / copy mode | `Ctrl-a` `[` |
 
 :::tip
 Mouse mode is enabled by default on vybn VMs. You can click on windows in the status bar, click to switch panes, and scroll with your mouse wheel or trackpad.
@@ -89,9 +95,9 @@ From inside tmux:
 
 | Method | Keys |
 |--------|------|
-| Next / previous window | `Ctrl-b` `n` / `Ctrl-b` `p` |
-| Jump to window by number | `Ctrl-b` `1`, `Ctrl-b` `2`, etc. |
-| Pick from a list | `Ctrl-b` `w` (arrow keys + Enter) |
+| Next / previous window | `Ctrl-a` `n` / `Ctrl-a` `p` |
+| Jump to window by number | `Ctrl-a` `1`, `Ctrl-a` `2`, etc. |
+| Pick from a list | `Ctrl-a` `w` (arrow keys + Enter) |
 
 From your local machine, you can reconnect straight to a specific window:
 
@@ -107,6 +113,7 @@ The VM ships with a `.tmux.conf` optimized for Claude Code sessions:
 
 | Setting | Value |
 |---------|-------|
+| Prefix key | `Ctrl-a` |
 | Mouse mode | On |
 | Window numbering | Starts at 1 |
 | Scroll history | 50,000 lines |
@@ -124,9 +131,9 @@ tmux source-file ~/.tmux.conf
 
 ## Tips
 
-- **Detach vs disconnect.** Pressing `Ctrl-b` `d` detaches you from tmux but leaves everything running — reconnect later with `vybn connect` and your session is intact. Closing the terminal or losing network connectivity has the same effect.
+- **Detach vs disconnect.** Pressing `Ctrl-a` `d` detaches you from tmux but leaves everything running — reconnect later with `vybn connect` and your session is intact. Closing the terminal or losing network connectivity has the same effect.
 - **Sessions don't survive VM stop/start.** If you run `vybn stop` and then `vybn start`, the tmux session is gone. Use `vybn session` to recreate your windows. See [Troubleshooting](/troubleshooting/) for more details.
-- **Exiting scroll mode.** After entering scroll mode with `Ctrl-b` `[`, press `q` to return to normal mode.
+- **Exiting scroll mode.** After entering scroll mode with `Ctrl-a` `[`, press `q` to return to normal mode.
 - **Scroll with the mouse.** Since mouse mode is on, scrolling your mouse wheel or trackpad enters copy mode automatically.
 
 ## Further reading

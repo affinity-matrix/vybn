@@ -175,4 +175,4 @@ Later, jump straight to the one you need:
 vybn connect frontend
 ```
 
-Inside the session, switch between windows with `Ctrl-b n` / `Ctrl-b p`, or jump by number with `Ctrl-b 1`, `Ctrl-b 2`, etc. See [Working with tmux](/guides/tmux/) for more shortcuts.
+Inside the session, switch between windows with `Ctrl-a n` / `Ctrl-a p`, or jump by number with `Ctrl-a 1`, `Ctrl-a 2`, etc. See [Working with tmux](/guides/tmux/) for more shortcuts.
