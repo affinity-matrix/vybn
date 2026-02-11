@@ -5,13 +5,11 @@ VYBN_TUNNEL_DIR="$HOME/.vybn/tunnels"
 
 _read_pidfile() {
     local file="$1"
-    PID="" REMOTE_PORT="" LOCAL_PORT="" VM_NAME="" STARTED=""
+    PID="" REMOTE_PORT="" LOCAL_PORT="" STARTED=""
     while IFS='=' read -r key value; do
         case "$key" in
             PID|REMOTE_PORT|LOCAL_PORT|STARTED)
-                [[ "$value" =~ ^[0-9]+$ ]] && declare -g "$key=$value" ;;
-            VM_NAME)
-                [[ "$value" =~ ^[a-z0-9-]+$ ]] && declare -g "$key=$value" ;;
+                [[ "$value" =~ ^[0-9]+$ ]] && printf -v "$key" '%s' "$value" ;;
         esac
     done < "$file"
 }
@@ -135,7 +133,6 @@ _tunnel_open() {
 PID=$pid
 REMOTE_PORT=$remote_port
 LOCAL_PORT=$local_port
-VM_NAME=$VYBN_VM_NAME
 STARTED=$(date +%s)
 EOF
 
@@ -150,13 +147,13 @@ _tunnel_list() {
         return
     fi
 
-    printf "%-12s %-14s %-18s %-8s %s\n" "LOCAL PORT" "REMOTE PORT" "VM" "PID" "UPTIME"
-    printf "%-12s %-14s %-18s %-8s %s\n" "----------" "-----------" "--" "---" "------"
+    printf "%-12s %-14s %-8s %s\n" "LOCAL PORT" "REMOTE PORT" "PID" "UPTIME"
+    printf "%-12s %-14s %-8s %s\n" "----------" "-----------" "---" "------"
 
     for pidfile in "${VYBN_TUNNEL_DIR}"/*.pid; do
         [[ -f "$pidfile" ]] || continue
 
-        local PID="" REMOTE_PORT="" LOCAL_PORT="" VM_NAME="" STARTED=""
+        local PID="" REMOTE_PORT="" LOCAL_PORT="" STARTED=""
         _read_pidfile "$pidfile"
 
         if ! kill -0 "$PID" 2>/dev/null; then
@@ -171,7 +168,7 @@ _tunnel_list() {
             uptime="$(format_duration "$elapsed")"
         fi
 
-        printf "%-12s %-14s %-18s %-8s %s\n" "$LOCAL_PORT" "$REMOTE_PORT" "$VM_NAME" "$PID" "$uptime"
+        printf "%-12s %-14s %-8s %s\n" "$LOCAL_PORT" "$REMOTE_PORT" "$PID" "$uptime"
     done
 
     if [[ "$found" == false ]]; then
