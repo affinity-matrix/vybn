@@ -5,6 +5,30 @@ description: How to navigate tmux sessions, windows, and panes on your vybn VM.
 
 tmux is a terminal multiplexer — it lets you run multiple terminal sessions inside a single connection, and keeps them alive even when you disconnect. vybn uses tmux to make Claude Code sessions persistent: you can close your laptop, reconnect from another device, and pick up exactly where you left off.
 
+## The basics
+
+```bash
+# First time — creates a session and attaches
+vybn connect
+
+# Close your laptop, go get coffee, switch to your phone...
+
+# Reconnect — you're right where you left off
+vybn connect
+```
+
+That's all there is to it. `vybn connect` attaches to the existing session, or creates one if none exists. Everything you were doing — running processes, Claude Code conversations, terminal output — is still there.
+
+### Named windows
+
+You can jump straight to a specific project window by name:
+
+```bash
+vybn connect backend
+```
+
+If the window exists, it's selected. If it doesn't exist, it's created. You never need to worry about whether it's there yet.
+
 ## Key concepts
 
 When you `vybn connect`, you're attached to a **tmux session** named `claude` (configurable via `VYBN_TMUX_SESSION`). Inside that session:
@@ -49,7 +73,7 @@ Mouse mode is enabled by default on vybn VMs. You can click on windows in the st
 
 ## Working with multiple projects
 
-Use `vybn session` to create a new tmux window with Claude Code for a specific project:
+Use `vybn session` to create named windows, each running Claude Code in its own directory:
 
 ```bash
 # From your local machine
@@ -57,9 +81,23 @@ vybn session myapp ~/projects/myapp
 vybn session backend ~/projects/backend
 ```
 
-Each command creates a named window running Claude Code in the given directory. Switch between them inside tmux with `Ctrl-b` `n` / `Ctrl-b` `p`, or jump directly with `Ctrl-b` `1`, `Ctrl-b` `2`, etc.
+Each command creates a named window running Claude Code in the given directory.
 
-The window list in `Ctrl-b` `w` shows all your project windows at a glance — use arrow keys to select one and press Enter.
+### Switching between projects
+
+From inside tmux:
+
+| Method | Keys |
+|--------|------|
+| Next / previous window | `Ctrl-b` `n` / `Ctrl-b` `p` |
+| Jump to window by number | `Ctrl-b` `1`, `Ctrl-b` `2`, etc. |
+| Pick from a list | `Ctrl-b` `w` (arrow keys + Enter) |
+
+From your local machine, you can reconnect straight to a specific window:
+
+```bash
+vybn connect backend
+```
 
 See [Commands](/commands/) for full `vybn session` usage.
 

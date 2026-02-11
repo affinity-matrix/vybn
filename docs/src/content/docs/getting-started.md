@@ -115,3 +115,30 @@ When you run `vybn deploy`, the following happens:
 5. The VM becomes reachable via the selected network backend
 
 After deploy completes, run `vybn connect` to drop into a tmux session. Claude Code will prompt you to log in on first launch.
+
+## Sessions persist across disconnects
+
+Everything runs inside a tmux session on the VM. Close your laptop, switch Wi-Fi, or reboot — your session keeps running. Reconnect whenever you're ready:
+
+```bash
+vybn connect
+```
+
+You're back exactly where you left off: same output, same running processes, same Claude Code conversation.
+
+## Working on multiple projects
+
+Use `vybn session` to create named windows, each running Claude Code in its own directory:
+
+```bash
+vybn session frontend ~/projects/frontend
+vybn session backend ~/projects/backend
+```
+
+Later, jump straight to the one you need:
+
+```bash
+vybn connect frontend
+```
+
+Inside the session, switch between windows with `Ctrl-b n` / `Ctrl-b p`, or jump by number with `Ctrl-b 1`, `Ctrl-b 2`, etc. See [Working with tmux](/guides/tmux/) for more shortcuts.

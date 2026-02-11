@@ -68,29 +68,42 @@ This provisions a GCP VM, runs the setup script (installs Claude Code native bin
 
 ## connect
 
-Attach to the tmux session on the VM. If a session doesn't exist, one is created.
+Attach to the tmux session on the VM. If the session doesn't exist, one is created automatically.
 
 ```bash
-# Connect to the default window
+# Attach to the default session
 vybn connect
 
-# Connect to a specific window
+# Attach and jump to a named window (created if it doesn't exist)
 vybn connect myproject
 ```
 
+The `[window]` argument is a shortcut: if a window with that name already exists, `connect` selects it; if it doesn't, `connect` creates it and then attaches. This means you can always run `vybn connect myproject` without worrying about whether the window is there yet.
+
+Because sessions are persistent on the VM, you can close your laptop, switch networks, or even reboot your local machine — then `vybn connect` picks up exactly where you left off.
+
 ## session
 
-Create a new tmux window for a project and launch Claude Code in it.
+Create a new tmux window with Claude Code running in a specific directory.
 
 ```bash
-# New window named "backend"
+# New window named "backend" in the default home directory
 vybn session backend
 
 # New window with a specific working directory
-vybn session backend /home/claude/projects/backend
+vybn session backend ~/projects/backend
 ```
 
-Each window runs an independent Claude Code instance, so you can work on multiple projects simultaneously.
+Each window runs an independent Claude Code instance, so you can work on multiple projects simultaneously. Pair this with `connect` to jump between them:
+
+```bash
+# Set up two project windows
+vybn session frontend ~/projects/frontend
+vybn session backend ~/projects/backend
+
+# Later, reconnect straight to the one you need
+vybn connect backend
+```
 
 ## sync-skills
 
