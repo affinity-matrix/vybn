@@ -22,17 +22,17 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 Claude Code runs best with a stable, always-on environment. Running it on a cloud VM gives you:
 
 <CardGrid>
-  <Card title="Persistent sessions" icon="laptop">
-    tmux keeps Claude Code running even when you disconnect. Reconnect from any device and pick up exactly where you left off.
+  <Card title="Three commands to running" icon="rocket">
+    Configure, deploy, connect — that's it. A setup wizard handles the rest. Claude Code is running in minutes, not hours.
   </Card>
-  <Card title="Consistent environment" icon="setting">
-    Same OS, same tools, no laptop-specific quirks. Choose your toolchains — Node.js, Python, Rust, Go, Docker — and get a consistent dev environment every time.
+  <Card title="Always-on sessions" icon="laptop">
+    Close your laptop, come back tomorrow — Claude keeps working. Sessions persist across disconnects so you never lose progress.
   </Card>
-  <Card title="Multiple projects" icon="list-format">
-    Each project runs in its own tmux window, all on one VM. Switch between them instantly.
+  <Card title="Connect from any device" icon="phone">
+    Prompt Claude from your phone on the train, pick up results on your laptop at the desk. One session, every screen.
   </Card>
-  <Card title="Work untethered" icon="phone">
-    Your VM is reachable from any device on your Tailscale network. Prompt Claude from your phone, pick up results on your laptop — the session never stops.
+  <Card title="Your cloud, your rules" icon="setting">
+    Pick your machine size, toolchains, and packages. Stop the VM when idle — pay only for what you use.
   </Card>
 </CardGrid>
 
@@ -50,3 +50,5 @@ vybn connect
 ```
 
 That's it. Three commands to get a persistent Claude Code environment in the cloud. vybn uses Tailscale by default, so your VM is reachable from any device on your tailnet — including phones and tablets.
+
+Have an idea or found a bug? [Open an issue on GitHub](https://github.com/affinity-matrix/vybn/issues/new/choose) — we'd love to hear from you.
