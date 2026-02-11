@@ -1,11 +1,13 @@
 ---
 title: Prerequisites
-description: Set up Google Cloud, the gcloud CLI, and Tailscale before deploying your first vybn VM.
+description: Set up your cloud provider and Tailscale before deploying your first vybn VM.
 ---
 
-This guide walks through everything you need before running `vybn deploy`. If you already have `gcloud` authenticated and Tailscale installed, you can skip straight to [Getting Started](/getting-started/).
+This guide walks through everything you need before running `vybn deploy`. Choose your provider — GCP (managed VM) or SSH (bring your own server) — and follow the relevant sections.
 
-## 1. Google Cloud account & project
+## GCP Provider
+
+### 1. Google Cloud account & project
 
 You need a GCP account with a project that has billing enabled.
 
@@ -17,7 +19,7 @@ You need a GCP account with a project that has billing enabled.
 vybn creates a single `e2-standard-4` VM by default. See [GCP pricing](https://cloud.google.com/compute/vm-instance-pricing) for current costs. You can change the machine type with `VYBN_MACHINE_TYPE` in `~/.vybnrc`.
 :::
 
-## 2. Install the gcloud CLI
+### 2. Install the gcloud CLI
 
 Install the Google Cloud SDK for your platform:
 
@@ -48,7 +50,7 @@ gcloud auth login
 To change your project later: `gcloud config set project PROJECT_ID`
 :::
 
-## 3. Enable the Compute Engine API
+### 3. Enable the Compute Engine API
 
 vybn creates VMs through the Compute Engine API, which must be enabled on your project:
 
@@ -56,12 +58,41 @@ vybn creates VMs through the Compute Engine API, which must be enabled on your p
 gcloud services enable compute.googleapis.com
 ```
 
-## 4. Tailscale account & auth key
+## SSH Provider
 
-Tailscale is the default network backend. It creates a WireGuard mesh so your VM is reachable from any device on your tailnet.
+The SSH provider deploys to an existing server you manage. No GCP account or `gcloud` CLI required.
 
-:::note[Using IAP instead?]
-If you'd rather tunnel SSH through Google's infrastructure, you can skip this section entirely. See the [IAP Setup guide](/guides/iap/) for that approach.
+### 1. Server requirements
+
+- **OS:** Ubuntu 22.04+, Ubuntu 24.04, or Debian 12+
+- **Access:** root or a user with passwordless sudo
+- **Network:** outbound internet access (to install packages and connect to Tailscale)
+- **SSH:** the server must be reachable from your local machine via SSH
+
+### 2. SSH client
+
+You need an SSH client on your local machine. macOS and Linux include one by default. Verify with:
+
+```bash
+ssh -V
+```
+
+### 3. SSH credentials
+
+Ensure you can connect to your server:
+
+```bash
+ssh user@your-server.example.com
+```
+
+If you use a specific key file, note its path — you'll provide it during `vybn init` (or set `VYBN_SSH_KEY` in `~/.vybnrc`).
+
+## Tailscale account & auth key
+
+Tailscale is the default network backend for both providers. It creates a WireGuard mesh so your VM is reachable from any device on your tailnet.
+
+:::note[Using IAP instead? (GCP only)]
+If you're using the GCP provider and prefer to tunnel SSH through Google's infrastructure, you can skip this section. See the [IAP Setup guide](/guides/iap/).
 :::
 
 1. Create a free account at [tailscale.com](https://tailscale.com/)

@@ -64,10 +64,14 @@ Configuration:
     VYBN_DISK_SIZE     Boot disk size in GB (default: 30)
     VYBN_USER          VM user (default: claude)
     VYBN_PROJECT       GCP project (auto-detected from gcloud)
-    VYBN_PROVIDER      Cloud provider (default: gcp)
+    VYBN_PROVIDER      Cloud provider: gcp (default) or ssh (bring your own VM)
     VYBN_NETWORK       Network backend (default: tailscale)
     VYBN_EXTERNAL_IP   Assign public IP to VM (default: false)
     VYBN_SSHID             SSH.id username for mobile key import
+    VYBN_SSH_HOST          Remote host for ssh provider (required if VYBN_PROVIDER=ssh)
+    VYBN_SSH_USER          SSH user for bootstrap (default: current user)
+    VYBN_SSH_KEY           Path to SSH private key for bootstrap
+    VYBN_SSH_PORT          SSH port for bootstrap (default: 22)
     VYBN_CLAUDE_CODE_VERSION  Claude Code version (default: 2.1.38)
     VYBN_TOOLCHAINS        Toolchain modules (default: node)
     VYBN_APT_PACKAGES      Extra apt packages to install

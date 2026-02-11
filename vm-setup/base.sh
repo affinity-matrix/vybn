@@ -176,6 +176,11 @@ set -g status-left "#[fg=colour46]#S #[fg=colour240]| "
 set -g status-right "#[fg=colour240]%H:%M"
 set -g status-left-length 30
 setw -g window-status-current-style "fg=colour166,bold"
+# Bell: highlight window tab when Claude Code is waiting for input
+set -g visual-bell off
+set -g bell-action other
+setw -g monitor-bell on
+set -g window-status-bell-style "fg=colour255,bg=colour196,bold"
 # Faster escape (for vim/claude)
 set -sg escape-time 10
 TMUXEOF
@@ -183,6 +188,53 @@ TMUXEOF
     else
         log "tmux config already exists."
     fi
+}
+
+setup_claude_hooks() {
+    local claude_dir="${CLAUDE_HOME}/.claude"
+    local settings="${claude_dir}/settings.json"
+
+    mkdir -p "$claude_dir"
+
+    if [[ -f "$settings" ]]; then
+        # Skip if notification hooks are already configured
+        if jq -e '.hooks.Notification' "$settings" &>/dev/null; then
+            log "Claude Code notification hooks already configured."
+            return
+        fi
+        # Merge notification hook into existing settings
+        local tmp
+        tmp="$(mktemp)"
+        jq --arg cmd "printf '\\a' > /dev/tty 2>/dev/null || true" '
+            .hooks = (.hooks // {}) + {
+                "Notification": [{
+                    "matcher": "idle_prompt",
+                    "hooks": [{"type": "command", "command": $cmd}]
+                }]
+            }
+        ' "$settings" > "$tmp" && mv "$tmp" "$settings"
+    else
+        cat > "$settings" << 'HOOKEOF'
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\a' > /dev/tty 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+HOOKEOF
+    fi
+
+    chown -R "${CLAUDE_USER}:${CLAUDE_USER}" "$claude_dir"
+    log "Claude Code notification hook configured (bell on idle)."
 }
 
 setup_ssh_hardening() {

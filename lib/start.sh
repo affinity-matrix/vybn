@@ -3,6 +3,13 @@
 
 main() {
     require_provider
+
+    if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+        info "VM lifecycle is managed externally. Start your server directly."
+        info "Once running, connect with: vybn connect"
+        return
+    fi
+
     require_vm_exists
 
     local status

@@ -51,10 +51,12 @@ _estimate_cost() {
 main() {
     local skip_confirm=false
     local auto_connect=false
+    local script_only=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -y|--yes) skip_confirm=true; shift ;;
             --connect) auto_connect=true; shift ;;
+            --script-only) script_only=true; shift ;;
             *) error "Unknown option: $1"; exit 1 ;;
         esac
     done
@@ -64,28 +66,40 @@ main() {
     require_provider
 
     # --- Confirmation prompt ---
-    if [[ "$skip_confirm" != true ]]; then
-        local cost_estimate
-        cost_estimate="$(_estimate_cost)"
-
-        info "Deploy summary:"
-        info "  Project:      ${VYBN_PROJECT}"
-        info "  Zone:         ${VYBN_ZONE}"
-        local _name_label="${VYBN_VM_NAME}"
-        if [[ "$_VYBN_NAME_AUTO" == true ]]; then
-            _name_label="${_name_label} (auto-generated)"
-        fi
-        info "  VM name:      ${_name_label}"
-        info "  Machine type: ${VYBN_MACHINE_TYPE}"
-        info "  Disk:         ${VYBN_DISK_SIZE} GB SSD"
-        info "  Network:      ${VYBN_NETWORK}"
-        info "  Toolchains:   ${VYBN_TOOLCHAINS}"
-        if [[ "${VYBN_EXTERNAL_IP}" == "true" ]]; then
-            info "  External IP:  yes"
+    if [[ "$skip_confirm" != true ]] && [[ "$script_only" != true ]]; then
+        if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+            info "Deploy summary:"
+            info "  Provider:     ssh (bring your own VM)"
+            info "  Host:         ${VYBN_SSH_HOST}"
+            info "  SSH user:     ${VYBN_SSH_USER}"
+            if [[ "${VYBN_SSH_PORT}" != "22" ]]; then
+                info "  SSH port:     ${VYBN_SSH_PORT}"
+            fi
+            info "  Network:      ${VYBN_NETWORK}"
+            info "  Toolchains:   ${VYBN_TOOLCHAINS}"
         else
-            info "  External IP:  no"
+            local cost_estimate
+            cost_estimate="$(_estimate_cost)"
+
+            info "Deploy summary:"
+            info "  Project:      ${VYBN_PROJECT}"
+            info "  Zone:         ${VYBN_ZONE}"
+            local _name_label="${VYBN_VM_NAME}"
+            if [[ "$_VYBN_NAME_AUTO" == true ]]; then
+                _name_label="${_name_label} (auto-generated)"
+            fi
+            info "  VM name:      ${_name_label}"
+            info "  Machine type: ${VYBN_MACHINE_TYPE}"
+            info "  Disk:         ${VYBN_DISK_SIZE} GB SSD"
+            info "  Network:      ${VYBN_NETWORK}"
+            info "  Toolchains:   ${VYBN_TOOLCHAINS}"
+            if [[ "${VYBN_EXTERNAL_IP}" == "true" ]]; then
+                info "  External IP:  yes"
+            else
+                info "  External IP:  no"
+            fi
+            info "  Est. cost:    ${cost_estimate} (verify: cloud.google.com/compute/pricing)"
         fi
-        info "  Est. cost:    ${cost_estimate} (verify: cloud.google.com/compute/pricing)"
         echo
         read -rp "Continue? [y/N] " confirm
         if [[ "$confirm" != [yY] ]]; then
@@ -95,21 +109,33 @@ main() {
     fi
 
     # Persist the resolved name so subsequent commands find this VM
-    _persist_vm_name
+    if [[ "$script_only" != true ]]; then
+        _persist_vm_name
+    fi
 
-    info "Deploying VM '${VYBN_VM_NAME}' in ${VYBN_ZONE}..."
+    if [[ "$script_only" != true ]]; then
+        if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+            info "Deploying to ${VYBN_SSH_HOST}..."
+        else
+            info "Deploying VM '${VYBN_VM_NAME}' in ${VYBN_ZONE}..."
+        fi
 
-    # --- Network setup (firewall rules, etc.) ---
-    net_setup
+        # --- Network setup (firewall rules, etc.) ---
+        net_setup
+    fi
 
-    # --- Check if VM already exists ---
-    if provider_vm_exists; then
-        error "VM '${VYBN_VM_NAME}' already exists. Use 'vybn destroy' first."
-        exit 1
+    # --- Check if VM already exists (skip for ssh provider — the VM is pre-existing) ---
+    if [[ "$VYBN_PROVIDER" != "ssh" ]] && [[ "$script_only" != true ]]; then
+        if provider_vm_exists; then
+            error "VM '${VYBN_VM_NAME}' already exists. Use 'vybn destroy' first."
+            exit 1
+        fi
     fi
 
     # --- Create VM ---
-    info "Creating VM (${VYBN_MACHINE_TYPE}, ${VYBN_DISK_SIZE}GB SSD)..."
+    if [[ "$VYBN_PROVIDER" != "ssh" ]]; then
+        info "Creating VM (${VYBN_MACHINE_TYPE}, ${VYBN_DISK_SIZE}GB SSD)..."
+    fi
 
     local base_script="${VYBN_DIR}/vm-setup/base.sh"
     local variant_script="${VYBN_DIR}/vm-setup/${VYBN_PROVIDER}-${VYBN_NETWORK}.sh"
@@ -182,6 +208,13 @@ main() {
         } >> "$setup_script"
     fi
 
+    # --- Script-only mode: output and exit ---
+    if [[ "$script_only" == true ]]; then
+        cat "$setup_script"
+        rm -f "$setup_script"
+        return
+    fi
+
     if ! provider_vm_create "$setup_script"; then
         rm -f "$setup_script"
         error "VM creation failed. Cleaning up network infrastructure..."
@@ -191,69 +224,98 @@ main() {
     rm -f "$setup_script"
 
     # --- Wait for startup script ---
-    info "Waiting for startup script to complete..."
-    info "(This may take a few minutes on first deploy)"
+    # For SSH provider, setup runs synchronously via provider_vm_create,
+    # so we just need to wait for Tailscale to come up.
+    if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+        info "Waiting for Tailscale to become reachable..."
+        local attempts=0
+        local max_attempts=30
+        local start_time
+        start_time=$(date +%s)
+        while (( attempts < max_attempts )); do
+            if net_ssh_raw "$VYBN_USER" "true" 2>/dev/null; then
+                break
+            fi
+            attempts=$((attempts + 1))
+            local elapsed=$(( $(date +%s) - start_time ))
+            printf "\r$(_color 34)[info]$(_reset) Waiting for Tailscale SSH... (%s elapsed)" "$(format_duration "$elapsed")"
+            sleep 5
+        done
+        printf "\n"
 
-    local attempts=0
-    local max_attempts=60
-    local start_time
-    start_time=$(date +%s)
-    while (( attempts < max_attempts )); do
-        local setup_result
-        setup_result="$(net_ssh_raw "$VYBN_USER" \
-            "if [ -f /var/log/vybn-setup-complete ]; then echo done; \
-             elif [ -f /var/log/vybn-setup-failed ]; then echo failed; \
-             else echo pending; fi" 2>/dev/null)" || setup_result="unreachable"
+        if (( attempts >= max_attempts )); then
+            local elapsed=$(( $(date +%s) - start_time ))
+            warn "Tailscale SSH not reachable after $(format_duration "$elapsed")."
+            warn "The setup completed, but Tailscale may need time to connect."
+            warn "Check: tailscale status"
+        else
+            success "Tailscale SSH is reachable."
+        fi
+    else
+        info "Waiting for startup script to complete..."
+        info "(This may take a few minutes on first deploy)"
 
-        # Fallback: check GCP guest attributes when SSH is not available.
-        # This handles the Tailscale chicken-and-egg: SSH requires Tailscale,
-        # but Tailscale setup is part of the startup script.
-        if [[ "$setup_result" == "unreachable" ]]; then
-            local ga_status
-            ga_status="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
-                --query-path=vybn/setup-status \
-                --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
-                --format='value(value)' 2>/dev/null)" || ga_status=""
-            case "$ga_status" in
-                complete) setup_result="done" ;;
-                failed)   setup_result="failed" ;;
+        local attempts=0
+        local max_attempts=60
+        local start_time
+        start_time=$(date +%s)
+        while (( attempts < max_attempts )); do
+            local setup_result
+            setup_result="$(net_ssh_raw "$VYBN_USER" \
+                "if [ -f /var/log/vybn-setup-complete ]; then echo done; \
+                 elif [ -f /var/log/vybn-setup-failed ]; then echo failed; \
+                 else echo pending; fi" 2>/dev/null)" || setup_result="unreachable"
+
+            # Fallback: check GCP guest attributes when SSH is not available.
+            # This handles the Tailscale chicken-and-egg: SSH requires Tailscale,
+            # but Tailscale setup is part of the startup script.
+            if [[ "$setup_result" == "unreachable" ]]; then
+                local ga_status
+                ga_status="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
+                    --query-path=vybn/setup-status \
+                    --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
+                    --format='value(value)' 2>/dev/null)" || ga_status=""
+                case "$ga_status" in
+                    complete) setup_result="done" ;;
+                    failed)   setup_result="failed" ;;
+                esac
+            fi
+
+            case "$setup_result" in
+                done) break ;;
+                failed)
+                    printf "\n"
+                    error "Startup script failed!"
+                    if ! net_ssh_raw "$VYBN_USER" "tail -50 /var/log/vybn-setup.log" 2>/dev/null; then
+                        warn "SSH not available. Fetching serial port output..."
+                        gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
+                            --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
+                            | grep "^\[" | tail -30 || true
+                    fi
+                    exit 1 ;;
             esac
+
+            attempts=$((attempts + 1))
+            local elapsed=$(( $(date +%s) - start_time ))
+            printf "\r$(_color 34)[info]$(_reset) Waiting for VM setup... (%s elapsed)" "$(format_duration "$elapsed")"
+            sleep 10
+        done
+        printf "\n"
+
+        if (( attempts >= max_attempts )); then
+            local elapsed=$(( $(date +%s) - start_time ))
+            error "Startup script did not complete within $(format_duration "$elapsed")."
+            warn "Fetching setup log from VM..."
+            if ! net_ssh_raw "$VYBN_USER" "tail -30 /var/log/vybn-setup.log" 2>/dev/null; then
+                warn "SSH not available. Fetching serial port output..."
+                gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
+                    --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
+                    | grep "^\[" | tail -30 || true
+            fi
+            error "Deploy did not complete successfully. The VM may still be setting up."
+            error "Check progress: vybn ssh 'tail -f /var/log/vybn-setup.log'"
+            exit 1
         fi
-
-        case "$setup_result" in
-            done) break ;;
-            failed)
-                printf "\n"
-                error "Startup script failed!"
-                if ! net_ssh_raw "$VYBN_USER" "tail -50 /var/log/vybn-setup.log" 2>/dev/null; then
-                    warn "SSH not available. Fetching serial port output..."
-                    gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
-                        --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
-                        | grep "^\[" | tail -30 || true
-                fi
-                exit 1 ;;
-        esac
-
-        attempts=$((attempts + 1))
-        local elapsed=$(( $(date +%s) - start_time ))
-        printf "\r$(_color 34)[info]$(_reset) Waiting for VM setup... (%s elapsed)" "$(format_duration "$elapsed")"
-        sleep 10
-    done
-    printf "\n"
-
-    if (( attempts >= max_attempts )); then
-        local elapsed=$(( $(date +%s) - start_time ))
-        error "Startup script did not complete within $(format_duration "$elapsed")."
-        warn "Fetching setup log from VM..."
-        if ! net_ssh_raw "$VYBN_USER" "tail -30 /var/log/vybn-setup.log" 2>/dev/null; then
-            warn "SSH not available. Fetching serial port output..."
-            gcloud compute instances get-serial-port-output "$VYBN_VM_NAME" \
-                --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" 2>/dev/null \
-                | grep "^\[" | tail -30 || true
-        fi
-        error "Deploy did not complete successfully. The VM may still be setting up."
-        error "Check progress: vybn ssh 'tail -f /var/log/vybn-setup.log'"
-        exit 1
     fi
 
     success "Startup script completed."
@@ -269,10 +331,15 @@ main() {
     if [[ "$VYBN_NETWORK" == "tailscale" ]]; then
         info "Fetching host key from VM..."
         local host_key
-        host_key="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
-            --query-path=vybn/ssh-host-key-ed25519 \
-            --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
-            --format='value(value)' 2>/dev/null)" || true
+        if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+            # Fetch host key via bootstrap SSH (no guest attributes for SSH provider)
+            host_key="$(_ssh_bootstrap_cmd "cat /etc/ssh/ssh_host_ed25519_key.pub" 2>/dev/null)" || true
+        else
+            host_key="$(gcloud compute instances get-guest-attributes "$VYBN_VM_NAME" \
+                --query-path=vybn/ssh-host-key-ed25519 \
+                --zone="$VYBN_ZONE" --project="$VYBN_PROJECT" \
+                --format='value(value)' 2>/dev/null)" || true
+        fi
         if [[ -n "$host_key" ]]; then
             local key_dir="${VYBN_SSH_KEY_DIR:-$HOME/.vybn/ssh}"
             local hostname="${VYBN_TAILSCALE_HOSTNAME:-$VYBN_VM_NAME}"
@@ -312,13 +379,14 @@ Creates a new VM with Claude Code pre-installed. Sets up:
 Options:
   -y, --yes           Skip confirmation prompt
   --connect           After deploy, connect to tmux session automatically
+  --script-only       Output the assembled setup script to stdout and exit
 
 Configuration (via ~/.vybnrc or environment):
   VYBN_VM_NAME        VM name (default: auto-generated)
   VYBN_ZONE           GCP zone (default: us-west1-a)
   VYBN_MACHINE_TYPE   Machine type (default: e2-standard-2)
   VYBN_DISK_SIZE      Boot disk size in GB (default: 30)
-  VYBN_PROVIDER       Cloud provider (default: gcp)
+  VYBN_PROVIDER       Cloud provider (default: gcp; also: ssh)
   VYBN_NETWORK        Network backend (default: tailscale)
   VYBN_EXTERNAL_IP    Assign public IP to VM (default: false)
   VYBN_CLAUDE_CODE_VERSION  Claude Code version to install (default: 2.1.38)
@@ -327,5 +395,11 @@ Configuration (via ~/.vybnrc or environment):
   VYBN_APT_PACKAGES   Extra apt packages to install on the VM
   VYBN_NPM_PACKAGES   Extra global npm packages (requires node toolchain)
   VYBN_SETUP_SCRIPT   Path to a custom setup script to run after all setup
+
+SSH provider (VYBN_PROVIDER=ssh):
+  VYBN_SSH_HOST       Remote hostname or IP (required)
+  VYBN_SSH_USER       SSH user for bootstrap connection (default: current user)
+  VYBN_SSH_KEY        Path to SSH private key for bootstrap
+  VYBN_SSH_PORT       SSH port for bootstrap connection (default: 22)
 EOF
 }
