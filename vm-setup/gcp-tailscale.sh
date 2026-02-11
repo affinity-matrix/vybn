@@ -158,6 +158,7 @@ setup_toolchains
 setup_claude_code
 setup_extra_packages
 setup_tmux
+setup_claude_hooks
 setup_ssh_hardening
 
 # Publish SSH host key to guest attributes for client-side pinning
