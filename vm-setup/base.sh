@@ -206,6 +206,21 @@ SSHDEOF
 }
 
 setup_bashrc() {
+    # Ensure ~/.local/bin is in PATH for login shells (SSH sessions).
+    # The default /etc/skel/.profile may include this, but not all VM images
+    # ship the standard skeleton — so we add it explicitly.
+    local profile="${CLAUDE_HOME}/.profile"
+    if ! grep -q 'vybn-setup' "$profile" 2>/dev/null; then
+        cat >> "$profile" << 'PROFILEEOF'
+
+# Added by vybn-setup
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+PROFILEEOF
+        chown "${CLAUDE_USER}:${CLAUDE_USER}" "$profile"
+    fi
+
     local bashrc="${CLAUDE_HOME}/.bashrc"
     if ! grep -q "vybn-setup" "$bashrc" 2>/dev/null; then
         log "Adding shell customizations..."
