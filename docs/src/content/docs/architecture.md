@@ -83,7 +83,6 @@ vybn/
 │   ├── deploy.sh         # deploy command
 │   ├── connect.sh        # connect command
 │   ├── session.sh        # session command
-│   ├── auth.sh           # auth command
 │   ├── sync_skills.sh    # sync-skills command
 │   ├── start.sh          # start command
 │   ├── stop.sh           # stop command

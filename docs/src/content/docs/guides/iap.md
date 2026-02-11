@@ -39,7 +39,6 @@ The VM will:
 ## 3. Connect
 
 ```bash
-vybn auth
 vybn connect
 ```
 
