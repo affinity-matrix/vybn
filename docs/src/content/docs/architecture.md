@@ -7,8 +7,8 @@ vybn uses a modular architecture with swappable provider and network backends.
 
 ## Core Concepts
 
-- **Provider** (`VYBN_PROVIDER`): Manages VM lifecycle — create, start, stop, delete. Default: `gcp`
-- **Network** (`VYBN_NETWORK`): Manages SSH connectivity and file transfer. Default: `tailscale`
+- **Provider** (`VYBN_PROVIDER`): Manages VM lifecycle — create, start, stop, delete. Options: `gcp` (default), `ssh` (bring your own server)
+- **Network** (`VYBN_NETWORK`): Manages SSH connectivity and file transfer. Options: `tailscale` (default), `iap` (GCP only)
 
 Provider backends live in `providers/` and network backends in `networks/`. The VM setup script is selected based on the combination: `vm-setup/${VYBN_PROVIDER}-${VYBN_NETWORK}.sh`.
 
@@ -72,6 +72,29 @@ SSH connections go through [GCP Identity-Aware Proxy](https://cloud.google.com/i
 - Firewall allows IAP SSH range (`35.235.240.0/20`) + deny-all for everything else
 - Not available from iOS (no `gcloud`)
 
+## SSH Provider Backend
+
+```
+┌─────────┐  bootstrap SSH    ┌──────────────────────────┐
+│  Laptop  │─────────────────►│    Your Server            │
+│          │  (upload script)  │                          │
+│  vybn    │                  │  setup script runs:       │
+│  CLI     │                  │  ├─ Claude Code           │
+│          │  Tailscale mesh   │  ├─ toolchains            │
+│  Phone   │◄────────────────►│  ├─ Tailscale             │
+│  Tablet  │  (after setup)   │  └─ tmux session "claude" │
+└─────────┘                  └──────────────────────────┘
+```
+
+The SSH provider deploys to an existing server you manage. Instead of creating a VM, `vybn deploy` uploads the assembled setup script via SCP and executes it over SSH. Once setup completes and Tailscale enrolls, the server is reachable through the tailnet like any other vybn VM.
+
+**Characteristics:**
+
+- No cloud API required — works with any SSH-accessible server
+- The bootstrap SSH connection (used during deploy) is separate from the Tailscale mesh used afterward
+- `start`/`stop` are not available — the user manages server lifecycle externally
+- `destroy` deregisters from Tailscale and cleans up local state without modifying the remote server
+
 ## Project Structure
 
 ```
@@ -97,7 +120,8 @@ vybn/
 │   ├── switch_network.sh # switch-network command
 │   └── add_key.sh        # add-key command
 ├── providers/            # Cloud provider backends
-│   └── gcp.sh            # Google Cloud Platform
+│   ├── gcp.sh            # Google Cloud Platform
+│   └── ssh.sh            # Bring your own VM (SSH)
 ├── networks/             # Network connectivity backends
 │   ├── iap.sh            # Identity-Aware Proxy
 │   └── tailscale.sh      # Tailscale mesh
@@ -105,6 +129,7 @@ vybn/
 │   ├── base.sh           # Shared setup functions
 │   ├── gcp-iap.sh        # GCP + IAP variant
 │   ├── gcp-tailscale.sh  # GCP + Tailscale variant
+│   ├── ssh-tailscale.sh  # SSH + Tailscale variant
 │   └── toolchains/       # Composable toolchain modules
 │       ├── node.sh       # nvm + Node.js LTS
 │       ├── python.sh     # pyenv + Python 3
@@ -129,3 +154,5 @@ At deploy time, the VM's startup script is assembled by concatenating several la
 6. **User script** — contents of `VYBN_SETUP_SCRIPT`, if configured
 
 Configuration is baked directly into the script header rather than read from cloud metadata at runtime. This makes the startup script self-contained and debuggable — you can read the full assembled script in the GCP serial console or setup log.
+
+For the SSH provider, the same assembly process produces the script locally. Instead of being passed as GCP startup metadata, the script is uploaded to the server via SCP and executed over SSH.

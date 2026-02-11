@@ -41,9 +41,10 @@ vybn init
 - `-f, --force` — back up and overwrite existing `~/.vybnrc` without prompting
 
 The wizard prompts for:
+- Provider (GCP or SSH)
 - Network backend (Tailscale or IAP)
-- GCP project and zone
-- VM name, machine type, and disk size
+- Provider-specific settings (GCP project/zone or SSH server details)
+- VM name, machine type, and disk size (GCP) or hostname (SSH)
 - Tailscale auth key (if using Tailscale)
 - Toolchains, extra packages, and custom setup scripts
 
@@ -61,10 +62,13 @@ vybn deploy
 
 - `-y, --yes` — skip the confirmation prompt
 - `--connect` — after deploy completes, attach to the tmux session
+- `--script-only` — output the assembled setup script to stdout and exit (does not deploy)
 
-Before creating the VM, `deploy` shows a summary with estimated monthly cost (based on the selected machine type and disk size) and asks for confirmation. Use `-y` to skip this.
+Before creating the VM, `deploy` shows a summary with estimated monthly cost (GCP) or server details (SSH) and asks for confirmation. Use `-y` to skip this.
 
-This provisions a GCP VM, runs the setup script (installs Claude Code native binary, selected toolchains, extra packages, tmux), and configures the network backend. The VM is ready to use once the command completes.
+**GCP provider:** provisions a VM, runs the setup script as startup metadata, and waits for the VM to become reachable.
+
+**SSH provider:** uploads the setup script to the server via SCP and executes it over SSH. The server must already be running and accessible.
 
 ## connect
 
@@ -123,6 +127,10 @@ Start a stopped VM. Waits until the VM is reachable via SSH before returning.
 vybn start
 ```
 
+:::note
+GCP only. The SSH provider does not manage server lifecycle — start your server directly.
+:::
+
 ## stop
 
 Stop the VM to save on compute costs. Disk is preserved.
@@ -134,6 +142,10 @@ vybn stop
 **Options:**
 
 - `-y, --yes` — skip the confirmation prompt
+
+:::note
+GCP only. The SSH provider does not manage server lifecycle — stop your server directly.
+:::
 
 :::note
 tmux sessions run in memory and don't survive a stop/start cycle. Your repos and files on disk persist. Create new sessions with `vybn connect` or `vybn session` after restarting.
@@ -151,9 +163,9 @@ vybn destroy
 
 - `-y, --yes` — skip the confirmation prompt (which normally requires typing the VM name)
 
-:::caution
-This deletes the VM's boot disk and all data on it. This action is not reversible.
-:::
+**GCP provider:** deletes the VM, its boot disk, and all associated network infrastructure. This action is not reversible.
+
+**SSH provider:** deregisters from Tailscale and cleans up local state files. The remote server itself is not modified or deleted.
 
 ## status
 
@@ -171,13 +183,22 @@ Validate that all prerequisites are met before deploying.
 vybn check
 ```
 
-Runs all checks and reports pass/fail for each:
-- gcloud CLI installed
-- gcloud authenticated (prints account)
-- GCP project configured (prints project ID)
+Runs provider-specific checks and reports pass/fail for each.
+
+**GCP provider:**
+- gcloud CLI installed and authenticated
+- GCP project configured
 - Compute Engine API enabled
 - Network-specific checks (Tailscale CLI, auth key, etc.)
-- VM setup script exists for the provider/network combination
+
+**SSH provider:**
+- SSH client installed
+- `VYBN_SSH_HOST` configured
+- SSH key readable (if set)
+- SSH connectivity to the server
+- Tailscale CLI and auth key
+
+Both providers also verify the VM setup script exists for the provider/network combination.
 
 Exits 0 if all checks pass, 1 if any fail. Run this before `vybn deploy` to catch configuration issues early.
 

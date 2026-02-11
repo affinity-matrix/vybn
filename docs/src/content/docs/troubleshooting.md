@@ -66,10 +66,14 @@ tailscale up
 
 The auth key may be invalid or expired. Generate a new one at the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys).
 
-You can also check the startup log directly via GCP:
+You can also check the startup log directly:
 
 ```bash
+# GCP provider — via GCP serial console
 gcloud compute ssh root@<vm-name> -- cat /var/log/vybn-setup.log
+
+# SSH provider — via bootstrap SSH
+ssh user@your-server cat /var/log/vybn-setup.log
 ```
 
 ### "Host key verification failed"
@@ -103,6 +107,43 @@ Re-authenticate with the Google Cloud SDK:
 ```bash
 gcloud auth login
 ```
+
+## SSH Provider Issues
+
+### "VYBN_SSH_HOST is not set"
+
+Set the host in `~/.vybnrc` or run `vybn init` to configure the SSH provider:
+
+```bash
+vybn init
+```
+
+### Cannot connect to server via SSH
+
+Verify you can reach the server directly:
+
+```bash
+ssh -o ConnectTimeout=10 user@your-server
+```
+
+Common causes:
+- Wrong hostname, user, port, or key path
+- Server firewall blocking your IP
+- SSH service not running on the server
+
+### Setup script fails on the server
+
+The setup script requires root or sudo access. Check the log:
+
+```bash
+ssh user@your-server cat /var/log/vybn-setup.log
+```
+
+Ensure the server runs Ubuntu 22.04+, Ubuntu 24.04, or Debian 12+.
+
+### "VM lifecycle is managed externally"
+
+`vybn start` and `vybn stop` are not available for the SSH provider. Start and stop your server directly through your hosting provider or OS tools.
 
 ## Toolchain Issues
 
