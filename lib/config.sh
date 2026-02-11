@@ -55,6 +55,12 @@ VYBN_TAILSCALE_HOSTNAME="${VYBN_TAILSCALE_HOSTNAME:-}"
 VYBN_TAILSCALE_TAGS="${VYBN_TAILSCALE_TAGS:-}"
 VYBN_SSH_KEY_DIR="${VYBN_SSH_KEY_DIR:-$HOME/.vybn/ssh}"
 
+# SSH provider defaults
+VYBN_SSH_HOST="${VYBN_SSH_HOST:-}"
+VYBN_SSH_USER="${VYBN_SSH_USER:-$(whoami)}"
+VYBN_SSH_KEY="${VYBN_SSH_KEY:-}"
+VYBN_SSH_PORT="${VYBN_SSH_PORT:-22}"
+
 # VM defaults
 VYBN_EXTERNAL_IP="${VYBN_EXTERNAL_IP:-false}"
 VYBN_CLAUDE_CODE_VERSION="${VYBN_CLAUDE_CODE_VERSION:-2.1.38}"
@@ -89,6 +95,12 @@ if [[ -f "$HOME/.vybnrc" ]]; then
         fi
     fi
     source "$HOME/.vybnrc"
+fi
+
+# Validate VYBN_SSH_PORT
+if [[ -n "$VYBN_SSH_PORT" ]] && ! [[ "$VYBN_SSH_PORT" =~ ^[0-9]+$ ]]; then
+    echo "[error] Invalid VYBN_SSH_PORT: '${VYBN_SSH_PORT}'" >&2
+    exit 1
 fi
 
 # Validate VYBN_TOOLCHAINS (comma-separated lowercase names)
@@ -329,8 +341,10 @@ _validate_gcp_params() {
 
 require_provider() {
     _resolve_vm_name
-    _ensure_project
-    _validate_gcp_params
+    if [[ "$VYBN_PROVIDER" == "gcp" ]]; then
+        _ensure_project
+        _validate_gcp_params
+    fi
     provider_require_cli
 }
 

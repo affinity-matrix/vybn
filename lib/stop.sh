@@ -11,6 +11,12 @@ main() {
     done
 
     require_provider
+
+    if [[ "$VYBN_PROVIDER" == "ssh" ]]; then
+        info "VM lifecycle is managed externally. Stop your server directly."
+        return
+    fi
+
     require_vm_exists
 
     local status
