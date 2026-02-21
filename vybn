@@ -37,6 +37,7 @@ Commands:
   deploy              Create the VM
   connect [window]    SSH + tmux attach (optionally to a specific window)
   session <name> [path]  Create a new Claude Code tmux window
+  sync up|down        Sync files between local and VM (rsync)
   sync-skills         Copy Claude Code skills to the VM
   start               Start a stopped VM
   stop                Stop VM (preserves disk)
@@ -84,7 +85,7 @@ cmd="${1:-help}"
 shift || true
 
 case "$cmd" in
-    init|deploy|connect|session|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
+    init|deploy|connect|session|sync|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
         source "${VYBN_DIR}/lib/${cmd//-/_}.sh"
         # Per-command --help
         if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && declare -f cmd_help &>/dev/null; then

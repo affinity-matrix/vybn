@@ -35,7 +35,7 @@ setup_system_packages() {
     apt-get update -qq
     apt-get install -y -qq \
         build-essential git curl wget jq unzip htop \
-        tmux ca-certificates gnupg lsb-release \
+        tmux rsync ca-certificates gnupg lsb-release \
         software-properties-common apt-transport-https
 }
 

@@ -144,6 +144,7 @@ network_functions=(
     vybn_ssh
     vybn_ssh_interactive
     net_tunnel
+    net_rsync_rsh
 )
 
 for network in iap tailscale; do
@@ -177,7 +178,7 @@ done
 # --- Test: --help flag works for command modules ---
 echo "--- --help per command ---"
 
-commands=(init deploy connect session sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update)
+commands=(init deploy connect session sync sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update)
 
 for cmd in "${commands[@]}"; do
     help_output="$(

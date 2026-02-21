@@ -84,3 +84,13 @@ net_tunnel() {
         --tunnel-through-iap \
         -- -N -L "localhost:${local_port}:localhost:${remote_port}"
 }
+
+net_rsync_rsh() {
+    # rsync invokes rsh as: rsh <host> <rsync-command...>
+    # The bash -c wrapper shifts away the host arg rsync passes,
+    # then routes everything through gcloud compute ssh.
+    # Line 1: rsh command for rsync -e
+    echo "bash -c 'shift; exec gcloud compute ssh ${VYBN_USER}@${VYBN_VM_NAME} --zone=${VYBN_ZONE} --project=${VYBN_PROJECT} --tunnel-through-iap -- \"\$@\"' _"
+    # Line 2: placeholder host (ignored by wrapper, but needed in rsync remote spec)
+    echo "iap-host"
+}

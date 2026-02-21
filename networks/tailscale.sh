@@ -222,6 +222,17 @@ net_tunnel() {
     ssh "${_TS_SSH_OPTS[@]}" -N -L "localhost:${local_port}:localhost:${remote_port}" "${VYBN_USER}@${hostname}"
 }
 
+net_rsync_rsh() {
+    local hostname
+    hostname="$(_ts_ssh_host)"
+    _ts_ssh_opts
+
+    # Line 1: rsh command for rsync -e
+    echo "ssh ${_TS_SSH_OPTS[*]}"
+    # Line 2: remote host for rsync paths
+    echo "${VYBN_USER}@${hostname}"
+}
+
 net_inject_config() {
     # Emit single-quoted shell variable assignments for the startup script header.
     # These are read by the variant script instead of fetching from GCP metadata.
