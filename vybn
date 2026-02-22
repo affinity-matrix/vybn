@@ -36,6 +36,7 @@ Commands:
   init                Interactive configuration wizard
   deploy              Create the VM
   connect [name]      Attach to a per-project tmux session
+  code [name|--path]  Open VS Code / Cursor on the VM
   sessions            List tmux sessions on the VM
   push [path]         Push files to VM (rsync)
   pull [path]         Pull files from VM (rsync)
@@ -76,6 +77,7 @@ Configuration:
     VYBN_SSH_USER          SSH user for bootstrap (default: current user)
     VYBN_SSH_KEY           Path to SSH private key for bootstrap
     VYBN_SSH_PORT          SSH port for bootstrap (default: 22)
+    VYBN_EDITOR              Editor CLI: code or cursor (auto-detected)
     VYBN_CLAUDE_CODE_VERSION  Claude Code version (default: 2.1.38)
     VYBN_TOOLCHAINS        Toolchain modules (default: node)
     VYBN_APT_PACKAGES      Extra apt packages to install
@@ -93,7 +95,7 @@ case "$cmd" in
 esac
 
 case "$cmd" in
-    init|deploy|connect|sessions|push|pull|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
+    init|deploy|connect|code|sessions|push|pull|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
         source "${VYBN_DIR}/lib/${cmd//-/_}.sh"
         # Per-command --help
         if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && declare -f cmd_help &>/dev/null; then

@@ -176,3 +176,13 @@ vybn connect frontend
 ```
 
 Inside the session, switch between windows with `Ctrl-a n` / `Ctrl-a p`, or jump by number with `Ctrl-a 1`, `Ctrl-a 2`, etc. See [Working with tmux](/guides/tmux/) for more shortcuts.
+
+## Editing with VS Code or Cursor
+
+Prefer a graphical editor? `vybn code` opens VS Code or Cursor connected to your VM via the Remote SSH extension:
+
+```bash
+vybn code myproject
+```
+
+This writes an SSH config entry and launches the editor — no manual Remote SSH setup required. See the [VS Code & Cursor guide](/guides/editor/) for details.

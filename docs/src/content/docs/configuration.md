@@ -29,6 +29,7 @@ All settings can also be set as environment variables.
 | `VYBN_USER` | `claude` | VM user account |
 | `VYBN_TMUX_SESSION` | `claude` | tmux session name |
 | `VYBN_TERM` | `xterm-256color` | Terminal type for tmux sessions |
+| `VYBN_EDITOR` | *(auto-detected)* | Editor CLI to launch: `code` or `cursor` |
 | `VYBN_QUIET` | `false` | Suppress info/success output (`--quiet` flag) |
 | `VYBN_VERBOSE` | `false` | Enable trace output (`--verbose` flag) |
 

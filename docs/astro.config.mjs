@@ -45,6 +45,7 @@ export default defineConfig({
             { label: "Mobile SSH", slug: "guides/mobile-ssh" },
             { label: "Toolchains", slug: "guides/toolchains" },
             { label: "Git & GitHub", slug: "guides/git-github" },
+            { label: "VS Code & Cursor", slug: "guides/editor" },
             { label: "Working with tmux", slug: "guides/tmux" },
           ],
         },

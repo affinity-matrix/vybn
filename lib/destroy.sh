@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 # vybn destroy — Delete VM and network infrastructure
 
+_maybe_remove_ssh_config() {
+    local auto_yes="${1:-false}"
+    local cfg="$HOME/.ssh/config"
+    [[ -f "$cfg" ]] || return 0
+    grep -q '^# vybn-start' "$cfg" 2>/dev/null || return 0
+
+    if [[ "$auto_yes" != true ]]; then
+        local answer
+        read -rp "Remove VS Code SSH config for 'vybn'? [Y/n] " answer
+        if [[ -n "$answer" && ! "$answer" =~ ^[Yy] ]]; then
+            return 0
+        fi
+    fi
+
+    local tmp
+    tmp="$(mktemp)"
+    sed '/^# vybn-start/,/^# vybn-end/d' "$cfg" > "$tmp"
+    mv "$tmp" "$cfg"
+    chmod 600 "$cfg"
+    success "SSH config block removed from ~/.ssh/config"
+}
+
 main() {
     local skip_confirm=false
     while [[ $# -gt 0 ]]; do
@@ -51,6 +73,9 @@ main() {
         rm -f "$HOME/.vybn/tailscale-hostname"
         rm -f "$HOME/.vybn/vm-name"
 
+        # Offer to remove SSH config block
+        _maybe_remove_ssh_config "$skip_confirm"
+
         # Tear down network infrastructure
         net_teardown
 
@@ -87,6 +112,9 @@ main() {
         # Clean up state files so next deploy gets a fresh name
         rm -f "$HOME/.vybn/tailscale-hostname"
         rm -f "$HOME/.vybn/vm-name"
+
+        # Offer to remove SSH config block
+        _maybe_remove_ssh_config "$skip_confirm"
 
         # Tear down network infrastructure
         net_teardown

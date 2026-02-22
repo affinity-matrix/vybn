@@ -10,6 +10,7 @@ description: Complete reference for all vybn CLI commands.
 | `vybn init [--force]` | Interactive configuration wizard |
 | `vybn deploy [--connect] [-y]` | Create the VM with Claude Code pre-installed |
 | `vybn connect [window]` | SSH + tmux attach (optionally to a specific window) |
+| `vybn code [name\|--path]` | Open VS Code / Cursor on the VM via Remote SSH |
 | `vybn session <name> [path]` | Create a new Claude Code tmux window |
 | `vybn sync-skills` | Copy installed Claude Code skills to the VM |
 | `vybn start` | Start a stopped VM |
@@ -85,6 +86,34 @@ vybn connect myproject
 The `[window]` argument is a shortcut: if a window with that name already exists, `connect` selects it; if it doesn't, `connect` creates it and then attaches. This means you can always run `vybn connect myproject` without worrying about whether the window is there yet.
 
 Because sessions are persistent on the VM, you can close your laptop, switch networks, or even reboot your local machine — then `vybn connect` picks up exactly where you left off.
+
+## code
+
+Open VS Code or Cursor connected to the VM using the Remote SSH extension. Automatically manages an SSH config entry (`Host vybn`) in `~/.ssh/config`.
+
+```bash
+# Auto-detect project from current directory
+vybn code
+
+# Open a session's registered directory
+vybn code myproject
+
+# Open an explicit path on the VM
+vybn code --path /opt/app
+```
+
+**Arguments:**
+
+- `name` — session name to open. Looks up the path from `sessions.conf`, or falls back to `$VYBN_PROJECTS_DIR/<name>`
+- `--path <path>` — explicit absolute path on the VM to open
+
+**With no arguments:** checks if `basename $PWD` matches a session name on the VM. If it matches, prompts to open that path. Otherwise opens `$VYBN_PROJECTS_DIR`.
+
+**Editor selection:** set `VYBN_EDITOR=code` or `VYBN_EDITOR=cursor` in `~/.vybnrc`. If not set, vybn auto-detects (Cursor first, then VS Code). If neither CLI is found, the SSH config is still written and manual connection instructions are printed.
+
+**SSH config block:** vybn writes a managed block between `# vybn-start` / `# vybn-end` markers in `~/.ssh/config`. The block is updated only when something changes (idempotent). The host alias is `vybn`, so you can also run `ssh vybn` directly.
+
+**Cleanup:** `vybn destroy` prompts to remove the SSH config block.
 
 ## session
 
