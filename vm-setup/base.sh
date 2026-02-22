@@ -26,6 +26,8 @@ CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-2.1.38}"
 VYBN_TOOLCHAINS="${VYBN_TOOLCHAINS:-node}"
 VYBN_APT_PACKAGES="${VYBN_APT_PACKAGES:-}"
 VYBN_NPM_PACKAGES="${VYBN_NPM_PACKAGES:-}"
+VYBN_PROJECTS_DIR="${VYBN_PROJECTS_DIR:-${CLAUDE_HOME}}"
+VYBN_DEFAULT_SESSION="${VYBN_DEFAULT_SESSION:-scratchpad}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 
@@ -185,6 +187,8 @@ set -g visual-bell off
 set -g bell-action any
 setw -g monitor-bell on
 set -g window-status-bell-style "fg=colour255,bg=colour196,bold"
+# New windows inherit current pane's directory
+bind c new-window -c "#{pane_current_path}"
 # Faster escape (for vim/claude)
 set -sg escape-time 10
 TMUXEOF
@@ -345,6 +349,26 @@ export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 BASHEOF
         fi
     fi
+}
+
+setup_sessions() {
+    log "Setting up session registry..."
+    local vybn_dir="${CLAUDE_HOME}/.vybn"
+    local conf="${vybn_dir}/sessions.conf"
+    local projects_dir="${VYBN_PROJECTS_DIR:-${CLAUDE_HOME}}"
+    local default_session="${VYBN_DEFAULT_SESSION:-scratchpad}"
+    local default_dir="${projects_dir}/${default_session}"
+
+    mkdir -p "$vybn_dir"
+    mkdir -p "$default_dir"
+
+    # Create sessions.conf with default entry if it doesn't exist
+    if [[ ! -f "$conf" ]]; then
+        echo "${default_session}=${default_dir}" > "$conf"
+    fi
+
+    chown -R "${CLAUDE_USER}:${CLAUDE_USER}" "$vybn_dir"
+    chown -R "${CLAUDE_USER}:${CLAUDE_USER}" "$default_dir"
 }
 
 setup_complete() {

@@ -13,6 +13,8 @@ VYBN_DISK_SIZE="${VYBN_DISK_SIZE:-30}"
 VYBN_USER="${VYBN_USER:-claude}"
 VYBN_PROJECT="${VYBN_PROJECT:-}"
 VYBN_TMUX_SESSION="${VYBN_TMUX_SESSION:-claude}"
+VYBN_DEFAULT_SESSION="${VYBN_DEFAULT_SESSION:-scratchpad}"
+VYBN_PROJECTS_DIR="${VYBN_PROJECTS_DIR:-}"
 VYBN_TERM="${VYBN_TERM:-xterm-256color}"
 VYBN_SSHID="${VYBN_SSHID:-}"
 
@@ -103,6 +105,25 @@ if [[ -n "$VYBN_SSH_PORT" ]] && ! [[ "$VYBN_SSH_PORT" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
+# Deprecation bridge: VYBN_TMUX_SESSION → VYBN_DEFAULT_SESSION
+if [[ "$VYBN_TMUX_SESSION" != "claude" ]]; then
+    echo "[warn] VYBN_TMUX_SESSION is deprecated. Use VYBN_DEFAULT_SESSION instead." >&2
+    if [[ "$VYBN_DEFAULT_SESSION" == "scratchpad" ]]; then
+        VYBN_DEFAULT_SESSION="$VYBN_TMUX_SESSION"
+    fi
+fi
+
+# Resolve VYBN_PROJECTS_DIR default (after VYBN_USER is finalized)
+if [[ -z "$VYBN_PROJECTS_DIR" ]]; then
+    VYBN_PROJECTS_DIR="/home/${VYBN_USER}"
+fi
+
+# Validate VYBN_PROJECTS_DIR (must be absolute path)
+if [[ "$VYBN_PROJECTS_DIR" != /* ]]; then
+    echo "[error] VYBN_PROJECTS_DIR must be an absolute path, got: '${VYBN_PROJECTS_DIR}'" >&2
+    exit 1
+fi
+
 # Validate VYBN_TOOLCHAINS (comma-separated lowercase names)
 if [[ -n "$VYBN_TOOLCHAINS" ]] && ! [[ "$VYBN_TOOLCHAINS" =~ ^[a-z][a-z0-9,]*$ ]]; then
     echo "[error] Invalid VYBN_TOOLCHAINS: '${VYBN_TOOLCHAINS}' (must be comma-separated lowercase names)" >&2
@@ -147,6 +168,33 @@ info()    { [[ "$VYBN_QUIET" == "true" ]] && return 0; echo "$(_color 34)[info]$
 warn()    { echo "$(_color 33)[warn]$(_reset) $*" >&2; }
 error()   { echo "$(_color 31)[error]$(_reset) $*" >&2; }
 success() { [[ "$VYBN_QUIET" == "true" ]] && return 0; echo "$(_color 32)[ok]$(_reset) $*"; }
+
+# --- Session name validation ---
+
+_validate_session_name() {
+    local name="$1"
+    if [[ -z "$name" ]]; then
+        error "Session name cannot be empty"
+        return 1
+    fi
+    if [[ ${#name} -gt 200 ]]; then
+        error "Session name too long (max 200 characters)"
+        return 1
+    fi
+    if [[ "$name" =~ [$'\n\r\t'] ]]; then
+        error "Session name cannot contain newlines or tabs"
+        return 1
+    fi
+    if [[ "$name" == *:* ]]; then
+        error "Session name cannot contain colons"
+        return 1
+    fi
+    if [[ "$name" == *.* ]]; then
+        error "Session name cannot contain periods"
+        return 1
+    fi
+    return 0
+}
 
 # --- Petname generator (unique Tailscale hostnames) ---
 

@@ -174,6 +174,8 @@ main() {
         echo "VYBN_TOOLCHAINS='${VYBN_TOOLCHAINS}'"
         echo "VYBN_APT_PACKAGES='${VYBN_APT_PACKAGES}'"
         echo "VYBN_NPM_PACKAGES='${VYBN_NPM_PACKAGES}'"
+        echo "VYBN_PROJECTS_DIR='${VYBN_PROJECTS_DIR}'"
+        echo "VYBN_DEFAULT_SESSION='${VYBN_DEFAULT_SESSION}'"
     } > "$setup_script"
 
     # 2. Network config — call net_inject_config if defined
@@ -354,11 +356,11 @@ main() {
     success "VM '${VYBN_VM_NAME}' deployed."
 
     if [[ "$auto_connect" == true ]]; then
-        local safe_session="${VYBN_TMUX_SESSION//\'/\'\\\'\'}"
-        info "Connecting to tmux session '${VYBN_TMUX_SESSION}'..."
+        local safe_session="${VYBN_DEFAULT_SESSION//\'/\'\\\'\'}"
+        info "Connecting to session '${VYBN_DEFAULT_SESSION}'..."
         vybn_ssh_interactive \
             "export TERM='${VYBN_TERM}'; \
-             tmux attach -t '${safe_session}' 2>/dev/null || tmux new-session -s '${safe_session}'"
+             tmux attach -t '${safe_session}' 2>/dev/null || tmux new-session -s '${safe_session}' -c '${VYBN_PROJECTS_DIR}/${VYBN_DEFAULT_SESSION}'"
     else
         echo
         info "Next step:"

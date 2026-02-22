@@ -43,10 +43,14 @@
 # VM user account
 # VYBN_USER="claude"
 
-# --- tmux ---
+# --- Sessions ---
 
-# tmux session name used for all Claude Code windows
-# VYBN_TMUX_SESSION="claude"
+# Default session name (created automatically on first connect)
+# VYBN_DEFAULT_SESSION="scratchpad"
+
+# Base directory for project sessions on the VM
+# Each session creates a subdirectory here (e.g., /home/claude/myproject)
+# VYBN_PROJECTS_DIR="/home/claude"
 
 # --- Output control ---
 

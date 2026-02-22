@@ -6,8 +6,11 @@ _vybn() {
     commands=(
         'init:Interactive configuration wizard'
         'deploy:Create the VM'
-        'connect:SSH + tmux attach'
-        'session:Create a new Claude Code tmux window'
+        'connect:Attach to a per-project tmux session'
+        'sessions:List tmux sessions on the VM'
+        'list:List tmux sessions (alias for sessions)'
+        'push:Push files to VM'
+        'pull:Pull files from VM'
         'sync-skills:Copy Claude Code skills to the VM'
         'start:Start a stopped VM'
         'stop:Stop VM (preserves disk)'

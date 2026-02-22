@@ -171,4 +171,5 @@ curl -sf -X PUT --data "$HOST_KEY_PUB" \
     || log "WARNING: Failed to publish host key to guest attributes."
 
 setup_bashrc
+setup_sessions
 setup_complete

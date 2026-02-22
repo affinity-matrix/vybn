@@ -35,9 +35,10 @@ Usage: vybn <command> [args]
 Commands:
   init                Interactive configuration wizard
   deploy              Create the VM
-  connect [window]    SSH + tmux attach (optionally to a specific window)
-  session <name> [path]  Create a new Claude Code tmux window
-  sync up|down        Sync files between local and VM (rsync)
+  connect [name]      Attach to a per-project tmux session
+  sessions            List tmux sessions on the VM
+  push [path]         Push files to VM (rsync)
+  pull [path]         Pull files from VM (rsync)
   sync-skills         Copy Claude Code skills to the VM
   start               Start a stopped VM
   stop                Stop VM (preserves disk)
@@ -59,15 +60,17 @@ Use 'vybn <command> --help' for details on a specific command.
 
 Configuration:
   Set in ~/.vybnrc or via environment variables:
-    VYBN_VM_NAME       VM name (default: auto-generated)
-    VYBN_ZONE          GCP zone (default: us-west1-a)
-    VYBN_MACHINE_TYPE  Machine type (default: e2-standard-2)
-    VYBN_DISK_SIZE     Boot disk size in GB (default: 30)
-    VYBN_USER          VM user (default: claude)
-    VYBN_PROJECT       GCP project (auto-detected from gcloud)
-    VYBN_PROVIDER      Cloud provider: gcp (default) or ssh (bring your own VM)
-    VYBN_NETWORK       Network backend (default: tailscale)
-    VYBN_EXTERNAL_IP   Assign public IP to VM (default: false)
+    VYBN_VM_NAME           VM name (default: auto-generated)
+    VYBN_ZONE              GCP zone (default: us-west1-a)
+    VYBN_MACHINE_TYPE      Machine type (default: e2-standard-2)
+    VYBN_DISK_SIZE         Boot disk size in GB (default: 30)
+    VYBN_USER              VM user (default: claude)
+    VYBN_PROJECT           GCP project (auto-detected from gcloud)
+    VYBN_PROVIDER          Cloud provider: gcp (default) or ssh (bring your own VM)
+    VYBN_NETWORK           Network backend (default: tailscale)
+    VYBN_EXTERNAL_IP       Assign public IP to VM (default: false)
+    VYBN_DEFAULT_SESSION   Default session name (default: scratchpad)
+    VYBN_PROJECTS_DIR      Base directory for projects on VM (default: /home/$VYBN_USER)
     VYBN_SSHID             SSH.id username for mobile key import
     VYBN_SSH_HOST          Remote host for ssh provider (required if VYBN_PROVIDER=ssh)
     VYBN_SSH_USER          SSH user for bootstrap (default: current user)
@@ -84,8 +87,13 @@ EOF
 cmd="${1:-help}"
 shift || true
 
+# Alias handling
 case "$cmd" in
-    init|deploy|connect|session|sync|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
+    list) cmd="sessions" ;;
+esac
+
+case "$cmd" in
+    init|deploy|connect|sessions|push|pull|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
         source "${VYBN_DIR}/lib/${cmd//-/_}.sh"
         # Per-command --help
         if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && declare -f cmd_help &>/dev/null; then

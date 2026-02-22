@@ -68,8 +68,9 @@ echo "--- lib modules ---"
 
 for module in "${VYBN_ROOT}"/lib/*.sh; do
     basename="$(basename "$module")"
-    # Skip config.sh — it's not a command module
+    # Skip non-command modules
     [[ "$basename" == "config.sh" ]] && continue
+    [[ "$basename" == "sessions_conf.sh" ]] && continue
 
     # Source in a subshell with VYBN_PROJECT set to skip gcloud auto-detect
     result="$(
@@ -178,7 +179,7 @@ done
 # --- Test: --help flag works for command modules ---
 echo "--- --help per command ---"
 
-commands=(init deploy connect session sync sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update)
+commands=(init deploy connect sessions push pull sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update)
 
 for cmd in "${commands[@]}"; do
     help_output="$(
@@ -349,6 +350,68 @@ else
 fi
 
 rm -rf "${_fake_home}"
+
+# --- Test: _validate_session_name ---
+echo "--- session name validation ---"
+
+# Valid session name
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+    bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "myproject" && echo ok' 2>&1)" || true
+if [[ "$result" == "ok" ]]; then
+    ok "valid session name accepted"
+else
+    fail "valid session name rejected: ${result}"
+fi
+
+# Empty session name
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+    bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name ""' 2>&1)" && {
+    fail "should reject empty session name"
+} || {
+    if echo "$result" | grep -qi "empty"; then
+        ok "empty session name rejected"
+    else
+        fail "wrong error for empty session name: ${result}"
+    fi
+}
+
+# Session name with colon
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+    bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "bad:name"' 2>&1)" && {
+    fail "should reject session name with colon"
+} || {
+    if echo "$result" | grep -qi "colon"; then
+        ok "session name with colon rejected"
+    else
+        fail "wrong error for colon session name: ${result}"
+    fi
+}
+
+# Session name with period
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+    bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "bad.name"' 2>&1)" && {
+    fail "should reject session name with period"
+} || {
+    if echo "$result" | grep -qi "period"; then
+        ok "session name with period rejected"
+    else
+        fail "wrong error for period session name: ${result}"
+    fi
+}
+
+# --- Test: VYBN_PROJECTS_DIR validation ---
+echo "--- VYBN_PROJECTS_DIR validation ---"
+
+result="$(VYBN_PROJECTS_DIR="relative/path" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+    bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
+    fail "should reject relative VYBN_PROJECTS_DIR"
+} || {
+    if echo "$result" | grep -qi "absolute"; then
+        ok "relative VYBN_PROJECTS_DIR rejected"
+    else
+        fail "wrong error for relative VYBN_PROJECTS_DIR: ${result}"
+    fi
+}
 
 # --- Test: toolchain modules ---
 echo "--- toolchain modules ---"

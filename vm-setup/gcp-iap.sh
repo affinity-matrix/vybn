@@ -22,4 +22,5 @@ setup_tmux
 setup_claude_hooks
 setup_ssh_hardening
 setup_bashrc
+setup_sessions
 setup_complete

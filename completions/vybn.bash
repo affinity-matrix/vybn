@@ -6,7 +6,7 @@ _vybn_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="init deploy connect session sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update version help"
+    commands="init deploy connect sessions list push pull sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update version help"
     tunnel_subcommands="list kill"
 
     case "$prev" in
