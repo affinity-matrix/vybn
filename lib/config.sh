@@ -22,6 +22,12 @@ VYBN_EDITOR="${VYBN_EDITOR:-}"
 # Output control
 VYBN_QUIET="${VYBN_QUIET:-false}"
 VYBN_VERBOSE="${VYBN_VERBOSE:-false}"
+VYBN_NO_COLOR="${VYBN_NO_COLOR:-false}"
+
+# NO_COLOR support (https://no-color.org/) + TTY detection
+if [[ -n "${NO_COLOR:-}" ]] || [[ "$VYBN_NO_COLOR" == "true" ]] || ! [[ -t 1 ]]; then
+    VYBN_NO_COLOR="true"
+fi
 
 # Validate VYBN_MACHINE_TYPE (lowercase letters, digits, hyphens)
 if ! [[ "$VYBN_MACHINE_TYPE" =~ ^[a-z][a-z0-9-]+$ ]]; then
@@ -151,8 +157,8 @@ fi
 
 # --- Output helpers ---
 
-_color() { printf "\033[%sm" "$1"; }
-_reset() { printf "\033[0m"; }
+_color() { [[ "$VYBN_NO_COLOR" == "true" ]] && return 0; printf "\033[%sm" "$1"; }
+_reset() { [[ "$VYBN_NO_COLOR" == "true" ]] && return 0; printf "\033[0m"; }
 
 format_duration() {
     local secs=$1
@@ -169,6 +175,7 @@ info()    { [[ "$VYBN_QUIET" == "true" ]] && return 0; echo "$(_color 34)[info]$
 warn()    { echo "$(_color 33)[warn]$(_reset) $*" >&2; }
 error()   { echo "$(_color 31)[error]$(_reset) $*" >&2; }
 success() { [[ "$VYBN_QUIET" == "true" ]] && return 0; echo "$(_color 32)[ok]$(_reset) $*"; }
+debug()   { [[ "$VYBN_VERBOSE" != "true" ]] && return 0; echo "$(_color 36)[debug]$(_reset) $*" >&2; }
 
 # --- Session name validation ---
 
@@ -216,7 +223,9 @@ _VYBN_ANIMALS=(
 generate_petname() {
     local adj="${_VYBN_ADJECTIVES[$((RANDOM % ${#_VYBN_ADJECTIVES[@]}))]}"
     local noun="${_VYBN_ANIMALS[$((RANDOM % ${#_VYBN_ANIMALS[@]}))]}"
-    echo "${adj}-${noun}"
+    local hex
+    hex="$(printf '%02x' $((RANDOM % 256)))"
+    echo "${adj}-${noun}-${hex}"
 }
 
 # --- VM name resolution ---
@@ -383,6 +392,20 @@ _validate_gcp_params() {
     if ! [[ "$VYBN_DISK_SIZE" =~ ^[0-9]+$ ]] || (( VYBN_DISK_SIZE < 10 || VYBN_DISK_SIZE > 65536 )); then
         error "Invalid disk size: '${VYBN_DISK_SIZE}' (must be 10-65536 GB)"
         exit 1
+    fi
+}
+
+# --- Lifecycle hooks ---
+
+VYBN_HOOKS_DIR="${VYBN_HOOKS_DIR:-$HOME/.vybn/hooks}"
+
+_run_hook() {
+    local hook_name="$1"
+    shift
+    local hook_file="${VYBN_HOOKS_DIR}/${hook_name}"
+    if [[ -x "$hook_file" ]]; then
+        debug "Running hook: ${hook_name}"
+        "$hook_file" "$@" || warn "Hook '${hook_name}' exited with status $?"
     fi
 }
 
