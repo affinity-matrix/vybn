@@ -11,6 +11,7 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -b|--batch) batch=true; shift ;;
+            --)         shift; args+=("$@"); break ;;
             *)          args+=("$1"); shift ;;
         esac
     done
@@ -31,18 +32,20 @@ cmd_help() {
     cat <<'EOF'
 vybn ssh — Raw SSH to the VM
 
-Usage: vybn ssh [OPTIONS] [command]
+Usage: vybn ssh [OPTIONS] [--] [command]
 
 With no arguments, opens an interactive shell on the VM.
 With a command, runs it remotely and returns the output.
 
 Options:
   -b, --batch       Batch mode (no PTY, no interactive prompts)
+  --                Stop parsing vybn flags (pass remaining args to SSH)
 
 Examples:
-  vybn ssh                        # Interactive shell
-  vybn ssh 'claude --version'     # Run a remote command
-  vybn ssh 'tmux list-sessions'   # Check tmux sessions
+  vybn ssh                              # Interactive shell
+  vybn ssh 'claude --version'           # Run a remote command
+  vybn ssh 'tmux list-sessions'         # Check tmux sessions
   vybn ssh --batch 'cat /etc/os-release'  # Batch mode
+  vybn ssh -- ls -la                    # Pass flags to remote command
 EOF
 }
