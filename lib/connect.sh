@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # vybn connect — Attach to a per-project tmux session
 
+_VYBN_RECONNECT=false
+
 main() {
     local session_name=""
     local session_path=""
@@ -8,6 +10,10 @@ main() {
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --reconnect|-r)
+                _VYBN_RECONNECT=true
+                shift
+                ;;
             --path)
                 if [[ -z "${2:-}" ]]; then
                     error "--path requires an argument"
@@ -37,12 +43,33 @@ main() {
 
     source "${VYBN_DIR}/lib/sessions_conf.sh"
 
+    _run_hook pre-connect "$session_name"
+
     if [[ -n "$session_name" ]]; then
         # Mode 1: Named session
         _connect_named "$session_name" "$session_path"
     else
         # Mode 2/3: Auto-attach or picker
         _connect_auto
+    fi
+
+    _run_hook post-connect "$session_name"
+}
+
+_connect_with_retry() {
+    # Run vybn_ssh_interactive with the given args; if --reconnect is set
+    # and the connection drops, retry with exponential backoff.
+    vybn_ssh_interactive "$@"
+    local rc=$?
+
+    if [[ "$_VYBN_RECONNECT" == true ]] && [[ $rc -ne 0 ]]; then
+        local delay=2
+        while true; do
+            warn "Connection lost. Reconnecting in ${delay}s... (Ctrl-C to stop)"
+            sleep "$delay" || return 130
+            vybn_ssh_interactive "$@" && break
+            delay=$(( delay < 30 ? delay * 2 : 30 ))
+        done
     fi
 }
 
@@ -60,7 +87,7 @@ _connect_named() {
 
     if [[ "$exists" == "yes" ]]; then
         info "Attaching to session '${name}'..."
-        vybn_ssh_interactive \
+        _connect_with_retry \
             "export TERM='${VYBN_TERM}'; tmux attach -t '${safe_name}'"
         return
     fi
@@ -100,7 +127,7 @@ exec claude'
     _remote_sessions_conf_write "$name" "$path"
 
     info "Attaching to session '${name}'..."
-    vybn_ssh_interactive \
+    _connect_with_retry \
         "export TERM='${VYBN_TERM}'; tmux attach -t '${safe_name}'"
 }
 
@@ -130,7 +157,7 @@ _connect_auto() {
             name="$(echo "${session_lines[0]}" | cut -d'|' -f1)"
             info "Attaching to session '${name}'..."
             local safe_name="${name//\'/\'\\\'\'}"
-            vybn_ssh_interactive \
+            _connect_with_retry \
                 "export TERM='${VYBN_TERM}'; tmux attach -t '${safe_name}'"
             ;;
         *)
@@ -196,7 +223,7 @@ _show_picker() {
     name="$(echo "$selected" | cut -d'|' -f1)"
     local safe_name="${name//\'/\'\\\'\'}"
     info "Attaching to session '${name}'..."
-    vybn_ssh_interactive \
+    _connect_with_retry \
         "export TERM='${VYBN_TERM}'; tmux attach -t '${safe_name}'"
 }
 
@@ -218,11 +245,13 @@ With no arguments:
   - If multiple sessions exist, shows an interactive picker
 
 Options:
-  --path <path>    Set the session's working directory (absolute path on VM)
+  --path <path>        Set the session's working directory (absolute path on VM)
+  --reconnect, -r      Auto-reconnect on disconnect (exponential backoff)
 
 Examples:
   vybn connect                           # Auto-attach or picker
   vybn connect myproject                 # Create/attach "myproject" session
   vybn connect myproject --path /opt/app # Use custom directory
+  vybn connect -r                        # Auto-reconnect on disconnect
 EOF
 }
