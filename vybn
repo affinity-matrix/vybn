@@ -10,9 +10,10 @@ export VYBN_DIR
 _vybn_args=()
 for _vybn_arg in "$@"; do
     case "$_vybn_arg" in
-        --quiet|-q) export VYBN_QUIET="true" ;;
-        --verbose)  export VYBN_VERBOSE="true" ;;
-        *)          _vybn_args+=("$_vybn_arg") ;;
+        --quiet|-q)    export VYBN_QUIET="true" ;;
+        --verbose)     export VYBN_VERBOSE="true" ;;
+        --no-color)    export VYBN_NO_COLOR="true" ;;
+        *)             _vybn_args+=("$_vybn_arg") ;;
     esac
 done
 set -- "${_vybn_args[@]+"${_vybn_args[@]}"}"
@@ -30,9 +31,9 @@ usage() {
     cat <<'EOF'
 vybn — Cloud Claude Code VM manager
 
-Usage: vybn <command> [args]
+Usage: vybn [flags] <command> [args]
 
-Commands:
+Core Commands:
   init                Interactive configuration wizard
   deploy              Create the VM
   connect [name]      Attach to a per-project tmux session
@@ -40,70 +41,78 @@ Commands:
   sessions            List tmux sessions on the VM
   push [path]         Push files to VM (rsync)
   pull [path]         Pull files from VM (rsync)
-  sync-skills         Copy Claude Code skills to the VM
   start               Start a stopped VM
   stop                Stop VM (preserves disk)
   destroy             Delete VM and network infrastructure
   status              Show VM state and tmux sessions
-  check               Validate prerequisites before deploying
+
+SSH & Keys:
   ssh [command]       Raw SSH to VM
-  switch-network <net> Switch network backend (iap or tailscale)
-  logs [OPTIONS]      View VM setup log
-  update [version]    Update Claude Code on the VM
   add-key <key|opts>  Add SSH public key(s) to the VM
+  keygen [OPTIONS]    Generate SSH key on VM and print public key
+  ssh-config          Generate SSH config block for the VM
+  ssh-fingerprint     Show VM's SSH host key fingerprint
   tunnel <port> [local]  Forward a TCP port (background, tracked)
   tunnel list            Show active tunnels
   tunnel kill <port|all> Stop a tunnel or all tunnels
+
+Infrastructure:
+  redeploy            Destroy and recreate the VM
+  resize <type>       Change VM machine type
+  snapshot [name]     Create/manage disk snapshots
+  switch-network <net> Switch network backend (iap or tailscale)
+
+Config & Maintenance:
+  config [subcmd]     View and modify configuration
+  sync-skills         Copy Claude Code skills to the VM
+  check               Validate prerequisites before deploying
+  logs [OPTIONS]      View VM logs
+  update [version]    Update Claude Code on the VM
+  self-update         Update vybn itself
   version             Show version
-  help                Show this help
+  help [command]      Show help (optionally for a specific command)
 
-Use 'vybn <command> --help' for details on a specific command.
+Global Flags:
+  --quiet, -q         Suppress info/success messages
+  --verbose           Enable debug output and shell tracing
+  --no-color          Disable color output
 
-Configuration:
-  Set in ~/.vybnrc or via environment variables:
-    VYBN_VM_NAME           VM name (default: auto-generated)
-    VYBN_ZONE              GCP zone (default: us-west1-a)
-    VYBN_MACHINE_TYPE      Machine type (default: e2-standard-2)
-    VYBN_DISK_SIZE         Boot disk size in GB (default: 30)
-    VYBN_USER              VM user (default: claude)
-    VYBN_PROJECT           GCP project (auto-detected from gcloud)
-    VYBN_PROVIDER          Cloud provider: gcp (default) or ssh (bring your own VM)
-    VYBN_NETWORK           Network backend (default: tailscale)
-    VYBN_EXTERNAL_IP       Assign public IP to VM (default: false)
-    VYBN_DEFAULT_SESSION   Default session name (default: scratchpad)
-    VYBN_PROJECTS_DIR      Base directory for projects on VM (default: /home/$VYBN_USER)
-    VYBN_SSHID             SSH.id username for mobile key import
-    VYBN_SSH_HOST          Remote host for ssh provider (required if VYBN_PROVIDER=ssh)
-    VYBN_SSH_USER          SSH user for bootstrap (default: current user)
-    VYBN_SSH_KEY           Path to SSH private key for bootstrap
-    VYBN_SSH_PORT          SSH port for bootstrap (default: 22)
-    VYBN_EDITOR              Editor CLI: code or cursor (auto-detected)
-    VYBN_CLAUDE_CODE_VERSION  Claude Code version (default: 2.1.38)
-    VYBN_TOOLCHAINS        Toolchain modules (default: node)
-    VYBN_APT_PACKAGES      Extra apt packages to install
-    VYBN_NPM_PACKAGES      Extra global npm packages
-    VYBN_SETUP_SCRIPT      Path to custom setup script
+Use 'vybn help <command>' or 'vybn <command> --help' for details.
 EOF
 }
 
 cmd="${1:-help}"
 shift || true
 
-# Alias handling
+# Command aliases
 case "$cmd" in
+    c)    cmd="connect" ;;
+    s)    cmd="status" ;;
+    d)    cmd="deploy" ;;
+    up)   cmd="start" ;;
+    down) cmd="stop" ;;
     list) cmd="sessions" ;;
 esac
 
+# Map command name to lib filename (config → config_cmd, hyphens → underscores)
+_cmd_file() {
+    local c="$1"
+    case "$c" in
+        config) echo "config_cmd" ;;
+        *)      echo "${c//-/_}" ;;
+    esac
+}
+
 case "$cmd" in
-    init|deploy|connect|code|sessions|push|pull|sync-skills|start|stop|destroy|status|ssh|add-key|tunnel|check|switch-network|logs|update)
-        source "${VYBN_DIR}/lib/${cmd//-/_}.sh"
+    init|deploy|connect|code|sessions|push|pull|sync-skills|start|stop|destroy|status|ssh|add-key|keygen|tunnel|check|switch-network|logs|update|ssh-config|config|ssh-fingerprint|redeploy|resize|snapshot|self-update)
+        source "${VYBN_DIR}/lib/$(_cmd_file "$cmd").sh"
         # Per-command --help
         if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && declare -f cmd_help &>/dev/null; then
             cmd_help
         else
             # Resolve VM name before lock (lock file path depends on it)
             case "$cmd" in
-                deploy|destroy|start|stop|switch-network)
+                deploy|destroy|start|stop|switch-network|redeploy|resize)
                     _resolve_vm_name
                     _vybn_lock
                     ;;
@@ -115,7 +124,34 @@ case "$cmd" in
         echo "vybn ${VYBN_VERSION}"
         ;;
     help|--help|-h)
-        usage
+        # Support 'vybn help <command>' syntax
+        if [[ -n "${1:-}" ]] && [[ "$1" != -* ]]; then
+            _vybn_help_cmd="$1"
+            # Resolve aliases for help
+            case "$_vybn_help_cmd" in
+                c)    _vybn_help_cmd="connect" ;;
+                s)    _vybn_help_cmd="status" ;;
+                d)    _vybn_help_cmd="deploy" ;;
+                up)   _vybn_help_cmd="start" ;;
+                down) _vybn_help_cmd="stop" ;;
+                list) _vybn_help_cmd="sessions" ;;
+            esac
+            _vybn_help_file="${VYBN_DIR}/lib/$(_cmd_file "$_vybn_help_cmd").sh"
+            if [[ -f "$_vybn_help_file" ]]; then
+                source "$_vybn_help_file"
+                if declare -f cmd_help &>/dev/null; then
+                    cmd_help
+                else
+                    error "No help available for '${_vybn_help_cmd}'"
+                    exit 1
+                fi
+            else
+                error "Unknown command: ${_vybn_help_cmd}"
+                exit 1
+            fi
+        else
+            usage
+        fi
         ;;
     *)
         error "Unknown command: $cmd"
