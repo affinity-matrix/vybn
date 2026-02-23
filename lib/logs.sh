@@ -4,6 +4,7 @@
 main() {
     local lines=50
     local follow=false
+    local log_source="setup"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -20,6 +21,14 @@ main() {
                 follow=true
                 shift
                 ;;
+            --system)
+                log_source="system"
+                shift
+                ;;
+            --claude)
+                log_source="claude"
+                shift
+                ;;
             *)
                 error "Unknown option: $1"
                 exit 1
@@ -30,29 +39,40 @@ main() {
     require_provider
     require_vm_running
 
+    local log_file
+    case "$log_source" in
+        setup)  log_file="/var/log/vybn-setup.log" ;;
+        system) log_file="/var/log/syslog" ;;
+        claude) log_file="\$HOME/.claude/logs/claude.log" ;;
+    esac
+
     if [[ "$follow" == true ]]; then
-        vybn_ssh_interactive "tail -f /var/log/vybn-setup.log"
+        vybn_ssh_interactive "tail -f ${log_file}"
     else
-        vybn_ssh "tail -n '${lines}' /var/log/vybn-setup.log"
+        vybn_ssh "tail -n '${lines}' ${log_file}"
     fi
 }
 
 cmd_help() {
     cat <<'EOF'
-vybn logs — View VM setup log
+vybn logs — View VM logs
 
 Usage: vybn logs [OPTIONS]
 
 Options:
   -n <lines>       Number of lines to show (default: 50)
   -f, --follow     Tail the log in real time (Ctrl-C to stop)
+  --system         Show system log (syslog) instead of setup log
+  --claude         Show Claude Code log instead of setup log
 
-Shows the VM's setup log (/var/log/vybn-setup.log). Useful for
-debugging deploy issues or checking what the startup script did.
+By default, shows the VM's setup log (/var/log/vybn-setup.log).
+Use --system or --claude to view other log sources.
 
 Examples:
-  vybn logs              # Last 50 lines
-  vybn logs -n 100       # Last 100 lines
-  vybn logs -f           # Follow in real time
+  vybn logs                # Last 50 lines of setup log
+  vybn logs -n 100         # Last 100 lines
+  vybn logs -f             # Follow setup log in real time
+  vybn logs --system       # System log
+  vybn logs --claude -f    # Follow Claude Code log
 EOF
 }
