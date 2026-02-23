@@ -53,20 +53,15 @@ main() {
     local auto_connect=false
     local script_only=false
     local dry_run=false
-    local preemptible=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -y|--yes) skip_confirm=true; shift ;;
             --connect) auto_connect=true; shift ;;
             --script-only) script_only=true; shift ;;
             --dry-run) dry_run=true; shift ;;
-            --preemptible|--spot) preemptible=true; shift ;;
             *) error "Unknown option: $1"; exit 1 ;;
         esac
     done
-
-    # Export preemptible for provider_vm_create to use
-    export VYBN_PREEMPTIBLE="$preemptible"
 
     trap 'echo; warn "Interrupted. The VM may still be provisioning."; warn "Check: vybn status"; exit 130' INT TERM
 
@@ -100,9 +95,6 @@ main() {
             info "  Disk:         ${VYBN_DISK_SIZE} GB SSD"
             info "  Network:      ${VYBN_NETWORK}"
             info "  Toolchains:   ${VYBN_TOOLCHAINS}"
-            if [[ "$preemptible" == true ]]; then
-                info "  Preemptible:  yes (60-91% cheaper, may be preempted)"
-            fi
             if [[ "${VYBN_EXTERNAL_IP}" == "true" ]]; then
                 info "  External IP:  yes"
             else
@@ -402,7 +394,6 @@ Options:
   --connect           After deploy, connect to tmux session automatically
   --script-only       Output the assembled setup script to stdout and exit
   --dry-run           Show what would be created, but don't do it
-  --preemptible       Use preemptible/spot VM (60-91% cheaper, may be preempted)
 
 Configuration (via ~/.vybnrc or environment):
   VYBN_VM_NAME        VM name (default: auto-generated)

@@ -74,9 +74,7 @@ _vybn() {
                 '--yes[Skip confirmation]' \
                 '--connect[Connect after deploy]' \
                 '--script-only[Output setup script]' \
-                '--dry-run[Show what would be created]' \
-                '--preemptible[Use preemptible/spot VM]' \
-                '--spot[Use preemptible/spot VM]'
+                '--dry-run[Show what would be created]'
             ;;
         connect)
             _arguments \

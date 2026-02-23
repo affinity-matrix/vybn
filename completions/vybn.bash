@@ -22,7 +22,7 @@ _vybn_completions() {
             return
             ;;
         deploy)
-            COMPREPLY=( $(compgen -W "-y --yes --connect --script-only --dry-run --preemptible --spot" -- "$cur") )
+            COMPREPLY=( $(compgen -W "-y --yes --connect --script-only --dry-run" -- "$cur") )
             return
             ;;
         connect)
